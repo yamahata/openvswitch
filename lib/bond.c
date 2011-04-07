@@ -383,6 +383,20 @@ bond_slave_register(struct bond *bond, void *slave_, uint16_t stb_id,
     slave->name = xstrdup(netdev_get_name(netdev));
 }
 
+/* Updates the network device to be used with 'slave_' to 'netdev'.
+ *
+ * This is useful if the caller closes and re-opens the network device
+ * registered with bond_slave_register() but doesn't need to change anything
+ * else. */
+void
+bond_slave_set_netdev(struct bond *bond, void *slave_, struct netdev *netdev)
+{
+    struct bond_slave *slave = bond_slave_lookup(bond, slave_);
+    if (slave) {
+        slave->netdev = netdev;
+    }
+}
+
 /* Unregisters 'slave_' from 'bond'.  If 'bond' does not contain such a slave
  * then this function has no effect.
  *
