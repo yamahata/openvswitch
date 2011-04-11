@@ -1347,6 +1347,8 @@ ofproto_run(struct ofproto *p)
     int error;
     int i;
 
+    dpif_run(p->dpif);
+
     for (i = 0; i < 50; i++) {
         struct dpif_upcall packet;
 
@@ -1425,6 +1427,7 @@ ofproto_wait(struct ofproto *p)
     struct ofbundle *bundle;
     struct ofport *ofport;
 
+    dpif_wait(p->dpif);
     HMAP_FOR_EACH (ofport, hmap_node, &p->ports) {
         ofport_wait(ofport);
     }
