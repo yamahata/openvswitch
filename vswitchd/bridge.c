@@ -800,13 +800,6 @@ bridge_del_ofproto_ports(struct bridge *br)
                       strerror(error));
         }
         if (iface) {
-            if (iface->port->bond) {
-                /* The bond has a pointer to the netdev, so remove it from
-                 * the bond before closing the netdev.  The slave will get
-                 * added back to the bond later, after a new netdev is
-                 * available. */
-                bond_slave_unregister(iface->port->bond, iface);
-            }
             netdev_close(iface->netdev);
             iface->netdev = NULL;
         }
@@ -2679,8 +2672,6 @@ static bool
 mirror_configure(struct mirror *m, const struct ovsrec_mirror *cfg)
 {
     struct ofproto_mirror_settings s;
-    struct port *out_port;
-    struct port *port;
 
     /* Set name. */
     if (strcmp(cfg->name, m->name)) {
@@ -2692,7 +2683,7 @@ mirror_configure(struct mirror *m, const struct ovsrec_mirror *cfg)
     /* Get output port or VLAN. */
     if (cfg->output_port) {
         s.out_bundle = port_lookup(m->bridge, cfg->output_port->name);
-        if (!out_port) {
+        if (!s.out_bundle) {
             VLOG_ERR("bridge %s: mirror %s outputs to port not on bridge",
                      m->bridge->name, m->name);
             return false;
@@ -2718,6 +2709,7 @@ mirror_configure(struct mirror *m, const struct ovsrec_mirror *cfg)
     if (cfg->select_all) {
         size_t n_ports = hmap_count(&m->bridge->ports);
         void **ports = xmalloc(n_ports * sizeof *ports);
+        struct port *port;
         size_t i;
 
         i = 0;
