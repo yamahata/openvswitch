@@ -725,7 +725,7 @@ ofputil_protocol_to_string(enum ofputil_protocol protocol)
         return "OpenFlow10+table_id";
 
     case OFPUTIL_P_OF12:
-        return NULL;
+        return "OpenFlow12";
     }
 
     /* Check abbreviations. */
