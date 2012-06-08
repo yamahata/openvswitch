@@ -1981,6 +1981,24 @@ ofputil_encode_flow_stats_request(const struct ofputil_flow_stats_request *fsr,
     struct ofpbuf *msg;
 
     switch (protocol) {
+    case OFPUTIL_P_OF12: {
+        struct ofp11_flow_stats_request *ofsr;
+        int type;
+
+        type = fsr->aggregate ? OFPST_AGGREGATE : OFPST_FLOW;
+        ofsr = ofputil_make_stats_request(sizeof *ofsr, type, 0, &msg);
+        ofsr->table_id = fsr->table_id;
+        memset(ofsr->pad, 0, sizeof ofsr->pad);
+        ofsr->out_port = ofputil_port_to_ofp11(fsr->out_port);
+        ofsr->out_group = htonl(OFPG11_ANY);
+        memset(ofsr->pad2, 0, sizeof ofsr->pad2);
+        ofsr->cookie = fsr->cookie;
+        ofsr->cookie_mask = fsr->cookie_mask;
+        ofputil_put_match(msg, &fsr->match, fsr->cookie, fsr->cookie_mask,
+                          protocol);
+        break;
+    }
+
     case OFPUTIL_P_OF10:
     case OFPUTIL_P_OF10_TID: {
         struct ofp10_flow_stats_request *ofsr;
