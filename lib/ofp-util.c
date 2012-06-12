@@ -3646,7 +3646,7 @@ put_openflow_xid(size_t openflow_len, uint8_t type, ovs_be32 xid,
     assert(openflow_len <= UINT16_MAX);
 
     oh = ofpbuf_put_uninit(buffer, openflow_len);
-    oh->version = OFP10_VERSION;
+    oh->version = OFP12_VERSION;
     oh->type = type;
     oh->length = htons(openflow_len);
     oh->xid = xid;
