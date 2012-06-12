@@ -214,7 +214,7 @@ vconn_verify_name(const char *name)
  *
  * The vconn will automatically negotiate an OpenFlow protocol version
  * acceptable to both peers on the connection.  The version negotiated will be
- * no lower than 'min_version' and no higher than OFP10_VERSION.
+ * no lower than 'min_version' and no higher than OFP12_VERSION.
  *
  * Returns 0 if successful, otherwise a positive errno value.  If successful,
  * stores a pointer to the new connection in '*vconnp', otherwise a null
@@ -417,13 +417,13 @@ vcs_recv_hello(struct vconn *vconn)
                 ds_destroy(&msg);
             }
 
-            vconn->version = MIN(OFP10_VERSION, oh->version);
+            vconn->version = MIN(OFP12_VERSION, oh->version);
             if (vconn->version < vconn->min_version) {
                 VLOG_WARN_RL(&bad_ofmsg_rl,
                              "%s: version negotiation failed: we support "
                              "versions 0x%02x to 0x%02x inclusive but peer "
                              "supports no later than version 0x%02"PRIx8,
-                             vconn->name, vconn->min_version, OFP10_VERSION,
+                             vconn->name, vconn->min_version, OFP12_VERSION,
                              oh->version);
                 vconn->state = VCS_SEND_ERROR;
             } else {
@@ -431,7 +431,7 @@ vcs_recv_hello(struct vconn *vconn)
                          "(we support versions 0x%02x to 0x%02x inclusive, "
                          "peer no later than version 0x%02"PRIx8")",
                          vconn->name, vconn->version, vconn->min_version,
-                         OFP10_VERSION, oh->version);
+                         OFP12_VERSION, oh->version);
                 vconn->state = VCS_CONNECTED;
             }
             ofpbuf_delete(b);
@@ -462,7 +462,7 @@ vcs_send_error(struct vconn *vconn)
 
     snprintf(s, sizeof s, "We support versions 0x%02x to 0x%02x inclusive but "
              "you support no later than version 0x%02"PRIx8".",
-             vconn->min_version, OFP10_VERSION, vconn->version);
+             vconn->min_version, OFP12_VERSION, vconn->version);
     b = ofperr_encode_hello(OFPERR_OFPHFC_INCOMPATIBLE,
                             ofperr_domain_from_version(vconn->version), s);
     retval = do_send(vconn, b);
@@ -958,7 +958,7 @@ pvconn_close(struct pvconn *pvconn)
  *
  * The new vconn will automatically negotiate an OpenFlow protocol version
  * acceptable to both peers on the connection.  The version negotiated will be
- * no lower than 'min_version' and no higher than OFP10_VERSION.
+ * no lower than 'min_version' and no higher than OFP12_VERSION.
  *
  * pvconn_accept() will not block waiting for a connection.  If no connection
  * is ready to be accepted, it returns EAGAIN immediately. */
