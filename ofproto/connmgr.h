@@ -88,7 +88,7 @@ void connmgr_set_controllers(struct connmgr *,
                              const struct ofproto_controller[], size_t n);
 void connmgr_reconnect(const struct connmgr *);
 
-int connmgr_set_snoops(struct connmgr *, const struct sset *snoops);
+int connmgr_set_snoops(struct connmgr *mgr, const struct shash *snoops);
 bool connmgr_has_snoops(const struct connmgr *);
 void connmgr_get_snoops(const struct connmgr *, struct sset *snoops);
 

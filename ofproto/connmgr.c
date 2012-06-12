@@ -404,7 +404,7 @@ static struct ofconn *find_controller_by_target(struct connmgr *,
                                                 const char *target);
 static void update_fail_open(struct connmgr *);
 static int set_pvconns(struct pvconn ***pvconnsp, size_t *n_pvconnsp,
-                       const struct sset *);
+                       const struct shash *);
 
 /* Returns true if 'mgr' has any configured primary controllers.
  *
@@ -585,7 +585,7 @@ connmgr_reconnect(const struct connmgr *mgr)
  * A "snoop" is a pvconn to which every OpenFlow message to or from the most
  * important controller on 'mgr' is mirrored. */
 int
-connmgr_set_snoops(struct connmgr *mgr, const struct sset *snoops)
+connmgr_set_snoops(struct connmgr *mgr, const struct shash *snoops)
 {
     return set_pvconns(&mgr->snoops, &mgr->n_snoops, snoops);
 }
@@ -705,11 +705,11 @@ update_fail_open(struct connmgr *mgr)
 
 static int
 set_pvconns(struct pvconn ***pvconnsp, size_t *n_pvconnsp,
-            const struct sset *sset)
+            const struct shash *shash)
 {
     struct pvconn **pvconns = *pvconnsp;
     size_t n_pvconns = *n_pvconnsp;
-    const char *name;
+    struct shash_node *node;
     int retval = 0;
     size_t i;
 
@@ -718,17 +718,18 @@ set_pvconns(struct pvconn ***pvconnsp, size_t *n_pvconnsp,
     }
     free(pvconns);
 
-    pvconns = xmalloc(sset_count(sset) * sizeof *pvconns);
+    pvconns = xmalloc(shash_count(shash) * sizeof *pvconns);
     n_pvconns = 0;
-    SSET_FOR_EACH (name, sset) {
+    SHASH_FOR_EACH (node, shash) {
+        const struct ofproto_name_and_versions *nv = node->data;
         struct pvconn *pvconn;
         int error;
-        error = pvconn_open(name, ofputil_get_allowed_versions_default(),
-                            &pvconn, 0);
+
+        error = pvconn_open(nv->name, nv->allowed_versions, &pvconn, 0);
         if (!error) {
             pvconns[n_pvconns++] = pvconn;
         } else {
-            VLOG_ERR("failed to listen on %s: %s", name, strerror(error));
+            VLOG_ERR("failed to listen on %s: %s", nv->name, strerror(error));
             if (!retval) {
                 retval = error;
             }

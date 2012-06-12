@@ -606,7 +606,7 @@ ofproto_set_desc(struct ofproto *p,
 }
 
 int
-ofproto_set_snoops(struct ofproto *ofproto, const struct sset *snoops)
+ofproto_set_snoops(struct ofproto *ofproto, const struct shash *snoops)
 {
     return connmgr_set_snoops(ofproto->connmgr, snoops);
 }

@@ -36,6 +36,7 @@
 #include "meta-flow.h"
 #include "netdev.h"
 #include "ofp-print.h"
+#include "ofp-util.h"
 #include "ofpbuf.h"
 #include "ofproto/ofproto.h"
 #include "poll-loop.h"
@@ -2731,13 +2732,17 @@ bridge_configure_remotes(struct bridge *br,
 
     /* Configure OpenFlow controller connection snooping. */
     if (!ofproto_has_snoops(br->ofproto)) {
-        struct sset snoops;
+        struct shash snoops;
+        struct ofproto_name_and_versions nv = {
+            .name = xasprintf("punix:%s/%s.snoop", ovs_rundir(), br->name),
+            .allowed_versions = ofputil_get_allowed_versions_default(),
+        };
 
-        sset_init(&snoops);
-        sset_add_and_free(&snoops, xasprintf("punix:%s/%s.snoop",
-                                             ovs_rundir(), br->name));
+        shash_init(&snoops);
+        shash_add(&snoops, nv.name, &nv);
         ofproto_set_snoops(br->ofproto, &snoops);
-        sset_destroy(&snoops);
+        shash_destroy(&snoops);
+        free(nv.name);
     }
 }
 

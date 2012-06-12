@@ -132,6 +132,11 @@ struct ofproto_controller {
     uint8_t dscp;               /* DSCP value for controller connection. */
 };
 
+struct ofproto_name_and_versions {
+    char *name;
+    uint32_t allowed_versions;
+};
+
 #define DEFAULT_MFR_DESC "Nicira, Inc."
 #define DEFAULT_HW_DESC "Open vSwitch"
 #define DEFAULT_SW_DESC VERSION
@@ -217,7 +222,7 @@ void ofproto_set_desc(struct ofproto *,
                       const char *mfr_desc, const char *hw_desc,
                       const char *sw_desc, const char *serial_desc,
                       const char *dp_desc);
-int ofproto_set_snoops(struct ofproto *, const struct sset *snoops);
+int ofproto_set_snoops(struct ofproto *ofproto, const struct shash *snoops);
 int ofproto_set_netflow(struct ofproto *,
                         const struct netflow_options *nf_options);
 int ofproto_set_sflow(struct ofproto *, const struct ofproto_sflow_options *);
