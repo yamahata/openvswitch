@@ -624,9 +624,10 @@ ofputil_protocol_to_ofp_version(enum ofputil_protocol protocol)
         return OFP10_VERSION;
     case OFPUTIL_P_OF12:
         return OFP12_VERSION;
+    case OFPUTIL_P_NONE:
+    default:
+        NOT_REACHED();
     }
-
-    NOT_REACHED();
 }
 
 /* Returns true if 'protocol' is a single OFPUTIL_P_* value, false
@@ -662,6 +663,7 @@ ofputil_protocol_set_tid(enum ofputil_protocol protocol, bool enable)
     case OFPUTIL_P_OF12:
         return OFPUTIL_P_OF12;
 
+    case OFPUTIL_P_NONE:
     default:
         NOT_REACHED();
     }
@@ -696,6 +698,7 @@ ofputil_protocol_set_base(enum ofputil_protocol cur,
     case OFPUTIL_P_OF12:
         return ofputil_protocol_set_tid(OFPUTIL_P_OF12, tid);
 
+    case OFPUTIL_P_NONE:
     default:
         NOT_REACHED();
     }
@@ -726,6 +729,9 @@ ofputil_protocol_to_string(enum ofputil_protocol protocol)
 
     case OFPUTIL_P_OF12:
         return "OpenFlow12";
+
+    case OFPUTIL_P_NONE:
+        NOT_REACHED();
     }
 
     /* Check abbreviations. */
@@ -1284,6 +1290,7 @@ ofputil_encode_set_protocol(enum ofputil_protocol current,
 
         case OFPUTIL_P_OF10_TID:
         case OFPUTIL_P_NXM_TID:
+        case OFPUTIL_P_NONE:
             NOT_REACHED();
         }
     }
@@ -1625,6 +1632,7 @@ ofputil_encode_flow_mod(const struct ofputil_flow_mod *fm,
         break;
     }
 
+    case OFPUTIL_P_NONE:
     default:
         NOT_REACHED();
     }
@@ -1829,6 +1837,7 @@ ofputil_encode_flow_stats_request(const struct ofputil_flow_stats_request *fsr,
         break;
     }
 
+    case OFPUTIL_P_NONE:
     default:
         NOT_REACHED();
     }
@@ -2323,6 +2332,7 @@ ofputil_encode_flow_removed(const struct ofputil_flow_removed *fr,
         break;
     }
 
+    case OFPUTIL_P_NONE:
     default:
         NOT_REACHED();
     }

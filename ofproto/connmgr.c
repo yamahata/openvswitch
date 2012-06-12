@@ -1036,7 +1036,7 @@ ofconn_flush(struct ofconn *ofconn)
     int i;
 
     ofconn->role = NX_ROLE_OTHER;
-    ofconn->protocol = OFPUTIL_P_OF10;
+    ofconn->protocol = OFPUTIL_P_NONE;
     ofconn->packet_in_format = NXPIF_OPENFLOW10;
 
     /* Disassociate 'ofconn' from all of the ofopgroups that it initiated that
@@ -1183,6 +1183,13 @@ ofconn_run(struct ofconn *ofconn,
             of_msg = (ofconn->blocked
                       ? ofconn->blocked
                       : rconn_recv(ofconn->rconn));
+            if (ofconn_get_protocol(ofconn) == OFPUTIL_P_NONE) {
+                int version = rconn_get_version(ofconn->rconn);
+                if (version > 0) {
+                    ofconn_set_protocol(ofconn,
+                                ofputil_protocol_from_ofp_version(version));
+                }
+            }
             if (!of_msg) {
                 break;
             }
