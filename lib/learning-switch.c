@@ -463,6 +463,9 @@ process_packet_in(struct lswitch *sw, struct rconn *rconn,
     struct ofpbuf pkt;
     struct flow flow;
 
+    enum ofputil_protocol protocol;
+    int ofp_version;
+
     error = ofputil_decode_packet_in(&pi, oh);
     if (error) {
         VLOG_WARN_RL(&rl, "failed to decode packet-in: %s",
@@ -511,6 +514,9 @@ process_packet_in(struct lswitch *sw, struct rconn *rconn,
     po.ofpacts = ofpacts.data;
     po.ofpacts_len = ofpacts.size;
 
+    ofp_version = rconn_get_version(rconn);
+    protocol = ofputil_protocol_from_ofp_version(ofp_version);
+
     /* Send the packet, and possibly the whole flow, to the output port. */
     if (sw->max_idle >= 0 && (!sw->ml || out_port != OFPP_FLOOD)) {
         struct ofputil_flow_mod fm;
@@ -533,13 +539,13 @@ process_packet_in(struct lswitch *sw, struct rconn *rconn,
 
         /* If the switch didn't buffer the packet, we need to send a copy. */
         if (pi.buffer_id == UINT32_MAX && out_port != OFPP_NONE) {
-            queue_tx(sw, rconn, ofputil_encode_packet_out(&po));
+            queue_tx(sw, rconn, ofputil_encode_packet_out(&po, protocol));
         }
     } else {
         /* We don't know that MAC, or we don't set up flows.  Send along the
          * packet without setting up a flow. */
         if (pi.buffer_id != UINT32_MAX || out_port != OFPP_NONE) {
-            queue_tx(sw, rconn, ofputil_encode_packet_out(&po));
+            queue_tx(sw, rconn, ofputil_encode_packet_out(&po, protocol));
         }
     }
 }
