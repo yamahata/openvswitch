@@ -527,7 +527,7 @@ process_packet_in(struct lswitch *sw, struct rconn *rconn,
         fm.out_port = OFPP_NONE;
         fm.ofpacts = ofpacts.data;
         fm.ofpacts_len = ofpacts.size;
-        buffer = ofputil_encode_flow_mod(&fm, sw->protocol);
+        buffer = ofputil_encode_flow_mod(&fm, protocol);
 
         queue_tx(sw, rconn, buffer);
 
