@@ -948,6 +948,7 @@ static const struct ofputil_msg_type ofputil_msg_types[] = {
     }
     OFPST12_REPLY(OFPST_DESC, OFPST_DESC,
                   sizeof(struct ofp_desc_stats), 0),
+    OFPST12_REPLY(OFPST11_FLOW, OFPST_FLOW, 0, 1),
 #undef OFPST12_REPLY
 
 #define NXT(SUBTYPE, MIN_SIZE, EXTRA_MULTIPLE)                          \
@@ -2167,9 +2168,10 @@ ofputil_decode_flow_stats_reply(struct ofputil_flow_stats *fs,
                                 struct ofpbuf *ofpacts)
 {
     const struct ofputil_msg_type *type;
+    const struct ofp_header *oh = msg->l2 ? msg->l2 : msg->data;
     int code;
 
-    ofputil_decode_msg_type(msg->l2 ? msg->l2 : msg->data, &type);
+    ofputil_decode_msg_type(oh, &type);
     code = ofputil_msg_type_code(type);
     if (!msg->l2) {
         msg->l2 = msg->data;
@@ -2178,6 +2180,43 @@ ofputil_decode_flow_stats_reply(struct ofputil_flow_stats *fs,
 
     if (!msg->size) {
         return EOF;
+    } else if (code == OFPUTIL_OFPST11_FLOW_REPLY) {
+        const struct ofp11_flow_stats *ofs;
+
+        ofs = ofpbuf_try_pull(msg, sizeof *ofs);
+        if (!ofs) {
+            VLOG_WARN_RL(&bad_ofmsg_rl, "OFPST_FLOW reply has %zu leftover "
+                         "bytes at end", msg->size);
+            return EINVAL;
+        }
+
+        if (ntohs(ofs->length) < sizeof *ofs) {
+            VLOG_WARN_RL(&bad_ofmsg_rl, "OFPST_FLOW reply claims invalid "
+                         "length %u", ntohs(ofs->length));
+            return EINVAL;
+        }
+
+        if (ofputil_pull_ofp12_match(msg, ntohs(ofs->priority), &fs->rule,
+                                     NULL, NULL)) {
+            VLOG_WARN_RL(&bad_ofmsg_rl, "OFPST_FLOW reply bad match");
+            return EINVAL;
+        }
+
+        if (ofpacts_pull_openflow11_instructions(msg, msg->size, ofpacts)) {
+            VLOG_WARN_RL(&bad_ofmsg_rl, "OFPST_FLOW reply bad instructions");
+            return EINVAL;
+        }
+
+        fs->table_id = ofs->table_id;
+        fs->duration_sec = ntohl(ofs->duration_sec);
+        fs->duration_nsec = ntohl(ofs->duration_nsec);
+        fs->idle_timeout = ntohs(ofs->idle_timeout);
+        fs->hard_timeout = ntohs(ofs->hard_timeout);
+        fs->idle_age = -1;
+        fs->hard_age = -1;
+        fs->cookie = ofs->cookie;
+        fs->packet_count = ntohll(ofs->packet_count);
+        fs->byte_count = ntohll(ofs->byte_count);
     } else if (code == OFPUTIL_OFPST10_FLOW_REPLY) {
         const struct ofp10_flow_stats *ofs;
         size_t length;
