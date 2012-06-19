@@ -902,6 +902,55 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
     case OFPACT_EXIT:
         return 0;
 
+#if 0
+    /* XXX: TODO VVVVVVVVVVVVVVVV */
+        ovs_be16 etype;
+        ovs_be32 mpls_label;
+        uint8_t mpls_tc, mpls_ttl;
+
+    case OFPUTIL_NXAST_PUSH_MPLS:
+        etype = ((const struct nx_action_push_mpls *) a)->ethertype;
+        if (etype != htons(ETH_TYPE_MPLS) &&
+            etype != htons(ETH_TYPE_MPLS_MCAST)) {
+            error = OFPERR_OFPBAC_BAD_ARGUMENT;
+        }
+        break;
+
+    case OFPUTIL_NXAST_POP_MPLS:
+        etype = ((const struct nx_action_pop_mpls *) a)->ethertype;
+        if (etype == htons(ETH_TYPE_MPLS) ||
+            etype == htons(ETH_TYPE_MPLS_MCAST)) {
+            error = OFPERR_OFPBAC_BAD_ARGUMENT;
+        }
+        break;
+
+    case OFPUTIL_NXAST_SET_MPLS_LABEL:
+        mpls_label = ((const struct nx_action_mpls_label *) a)->mpls_label;
+        if (mpls_label & ~htonl(0x000fffff)) {
+            error = OFPERR_OFPBAC_BAD_ARGUMENT;
+        }
+        break;
+
+    case OFPUTIL_NXAST_SET_MPLS_TC:
+        mpls_tc = ((const struct nx_action_mpls_tc *) a)->mpls_tc;
+        if (mpls_tc & ~7) {
+            error = OFPERR_OFPBAC_BAD_ARGUMENT;
+        }
+        break;
+
+    case OFPUTIL_NXAST_SET_MPLS_TTL:
+        mpls_ttl = ((const struct nx_action_mpls_ttl *) a)->mpls_ttl;
+        if (mpls_ttl == 0 || mpls_ttl == 1) {
+            error = OFPERR_OFPBAC_BAD_ARGUMENT;
+        }
+        break;
+
+    case OFPUTIL_NXAST_COPY_TTL_OUT:
+    case OFPUTIL_NXAST_COPY_TTL_IN:
+    case OFPUTIL_NXAST_DEC_MPLS_TTL:
+        break;
+    /* XXX: TODO ^^^^^^^^^^^^^^^^^ */
+#endif
     default:
         NOT_REACHED();
     }
@@ -1545,6 +1594,47 @@ ofpact_format(const struct ofpact *a, struct ds *s)
     case OFPACT_EXIT:
         ds_put_cstr(s, "exit");
         break;
+#if 0
+    /* XXX: TODO VVVVVVVVVVVVVVVV */
+    case OFPUTIL_NXAST_SET_MPLS_LABEL:
+        naml = (const struct nx_action_mpls_label *) a;
+        ds_put_format(s, "set_mpls_label:%"PRIu32, ntohl(naml->mpls_label));
+        break;
+
+    case OFPUTIL_NXAST_SET_MPLS_TC:
+        namtc = (const struct nx_action_mpls_tc *) a;
+        ds_put_format(s, "set_mpls_tc:%"PRIu8, namtc->mpls_tc);
+        break;
+
+    case OFPUTIL_NXAST_SET_MPLS_TTL:
+        namttl = (const struct nx_action_mpls_ttl *) a;
+        ds_put_format(s, "set_mpls_ttl:%"PRIu8, namttl->mpls_ttl);
+        break;
+
+    case OFPUTIL_NXAST_DEC_MPLS_TTL:
+        ds_put_cstr(s, "dec_mpls_ttl");
+        break;
+
+    case OFPUTIL_NXAST_COPY_TTL_IN:
+        ds_put_cstr(s, "copy_ttl_in");
+        break;
+
+    case OFPUTIL_NXAST_COPY_TTL_OUT:
+        ds_put_cstr(s, "copy_ttl_out");
+        break;
+
+   case OFPUTIL_NXAST_PUSH_MPLS:
+        nampush = (const struct nx_action_push_mpls *) a;
+        ds_put_format(s, "push_mpls:0x%"PRIx16, ntohs(nampush->ethertype));
+        break;
+
+    case OFPUTIL_NXAST_POP_MPLS:
+        nampop = (const struct nx_action_pop_mpls *) a;
+        ds_put_format(s, "pop_mpls:0x%"PRIx16, ntohs(nampop->ethertype));
+        break;
+    /* XXX: TODO ^^^^^^^^^^^^^^^^^ */
+#endif
+
     }
 }
 
