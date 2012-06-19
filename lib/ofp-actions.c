@@ -1071,6 +1071,17 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
     case OFPACT_DEC_MPLS_TTL:
         return 0;
 
+#if 0
+    /* XXX: TODO VVVVVVVVVVVVVVVV */
+    case OFPUTIL_NXAST_PUSH_VLAN:
+        vtpid = ((const struct nx_action_push_vlan *) a)->tpid;
+        if (vtpid != htons(ETH_TYPE_VLAN) &&
+            vtpid != htons(ETH_TYPE_VLAN_8021AD)) {
+            error = OFPERR_OFPBAC_BAD_ARGUMENT;
+        }
+        break;
+    /* XXX: TODO ^^^^^^^^^^^^^^^^^ */
+#endif
     default:
         NOT_REACHED();
     }
@@ -2031,6 +2042,15 @@ ofpact_format(const struct ofpact *a, struct ds *s)
         ds_put_format(s, "push_mpls:0x%"PRIx16,
                       ntohs(ofpact_get_PUSH_MPLS(a)->ethertype));
         break;
+
+#if 0
+    /* XXX: TODO VVVVVVVVVVVVVVVVV */
+   case OFPUTIL_NXAST_PUSH_VLAN:
+        navpush = (const struct nx_action_push_vlan *) a;
+        ds_put_format(s, "push_vlan:0x%"PRIx16, ntohs(navpush->tpid));
+        break;
+    /* XXX: TODO ^^^^^^^^^^^^^^^^^ */
+#endif
 
     case OFPACT_POP_MPLS:
         ds_put_format(s, "pop_mpls:0x%"PRIx16,
