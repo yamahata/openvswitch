@@ -939,6 +939,8 @@ static const struct ofputil_msg_type ofputil_msg_types[] = {
     }
     OFPST11_REPLY(OFPST_DESC, OFPST_DESC,
                   sizeof(struct ofp_desc_stats), 0),
+    OFPST11_REPLY(OFPST10_AGGREGATE, OFPST_AGGREGATE,
+                  sizeof(struct ofp11_aggregate_stats_reply), 0),
 #undef OFPST11_REPLY
 
 #define OFPST12_REPLY(STAT, RAW_STAT, MIN_SIZE, EXTRA_MULTIPLE)  \
@@ -951,6 +953,8 @@ static const struct ofputil_msg_type ofputil_msg_types[] = {
     }
     OFPST12_REPLY(OFPST_DESC, OFPST_DESC,
                   sizeof(struct ofp_desc_stats), 0),
+    OFPST12_REPLY(OFPST10_AGGREGATE, OFPST_AGGREGATE,
+                  sizeof(struct ofp11_aggregate_stats_reply), 0),
     OFPST12_REPLY(OFPST10_FLOW, OFPST_FLOW, 0, 1),
 #undef OFPST12_REPLY
 
@@ -2446,7 +2450,20 @@ ofputil_encode_aggregate_stats_reply(
 
     ofputil_decode_msg_type(request, &type);
     code = ofputil_msg_type_code(type);
-    if (code == OFPUTIL_OFPST10_AGGREGATE_REQUEST) {
+    if (code == OFPUTIL_OFPST10_AGGREGATE_REQUEST &&
+        (request->version == OFP12_VERSION ||
+         request->version == OFP11_VERSION)) {
+        struct ofp11_stats_msg *osm;
+        struct ofp11_aggregate_stats_reply *asr;
+
+        ofpbuf_pull(msg, sizeof osm->pad);
+
+        asr = ofputil_make_stats_reply(sizeof *asr, request, &msg);
+        asr->packet_count = htonll(unknown_to_zero(stats->packet_count));
+        asr->byte_count = htonll(unknown_to_zero(stats->byte_count));
+        asr->flow_count = htonl(stats->flow_count);
+    } else if (code == OFPUTIL_OFPST10_AGGREGATE_REQUEST &&
+        request->version == OFP10_VERSION) {
         struct ofp10_aggregate_stats_reply *asr;
 
         asr = ofputil_make_stats_reply(sizeof *asr, request, &msg);
