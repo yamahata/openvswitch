@@ -1003,13 +1003,19 @@ ofp_print_flow_stats_reply(struct ds *string, const struct ofp_header *oh)
 static void
 ofp_print_ofpst_aggregate_reply(struct ds *string, const struct ofp_header *oh)
 {
-    const struct ofp10_aggregate_stats_reply *asr;
+    struct ofp11_aggregate_stats_reply *asr = ofputil_stats_msg_body(oh);
 
-    asr = ofputil_stats_msg_body(oh);
-    ds_put_format(string, " packet_count=%"PRIu64,
-                  ntohll(get_32aligned_be64(&asr->packet_count)));
-    ds_put_format(string, " byte_count=%"PRIu64,
-                  ntohll(get_32aligned_be64(&asr->byte_count)));
+    if (oh->version == OFP10_VERSION) {
+        const struct ofp10_aggregate_stats_reply *a10sr;
+
+        a10sr = ofputil_stats_msg_body(oh);
+        asr->packet_count = get_32aligned_be64(&a10sr->packet_count);
+        asr->byte_count = get_32aligned_be64(&a10sr->byte_count);
+        asr->flow_count = a10sr->flow_count;
+    }
+
+    ds_put_format(string, " packet_count=%"PRIu64, ntohll(asr->packet_count));
+    ds_put_format(string, " byte_count=%"PRIu64, ntohll(asr->byte_count));
     ds_put_format(string, " flow_count=%"PRIu32, ntohl(asr->flow_count));
 }
 
