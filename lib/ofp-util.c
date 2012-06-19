@@ -885,6 +885,8 @@ static const struct ofputil_msg_type ofputil_msg_types[] = {
         EXTRA_MULTIPLE                                          \
     }
     OFPST11_REQUEST(OFPST_DESC, OFPST_DESC, 0, 0),
+    OFPST11_REQUEST(OFPST11_FLOW, OFPST_FLOW,
+                    sizeof(struct ofp10_flow_stats_request), 0),
     OFPST11_REQUEST(OFPST_TABLE, OFPST_TABLE, 0, 0),
     OFPST11_REQUEST(OFPST_PORT_DESC, OFPST_PORT_DESC, 0, 0),
 #undef OFPST11_REQUEST
@@ -898,6 +900,8 @@ static const struct ofputil_msg_type ofputil_msg_types[] = {
         EXTRA_MULTIPLE                                          \
     }
     OFPST12_REQUEST(OFPST_DESC, OFPST_DESC, 0, 0),
+    OFPST12_REQUEST(OFPST11_FLOW, OFPST_FLOW,
+                    sizeof(struct ofp10_flow_stats_request), 0),
     OFPST12_REQUEST(OFPST_TABLE, OFPST_TABLE, 0, 0),
     OFPST12_REQUEST(OFPST_PORT_DESC, OFPST_PORT_DESC, 0, 0),
 #undef OFPST12_REQUEST
@@ -1980,14 +1984,38 @@ ofputil_flow_mod_usable_protocols(const struct ofputil_flow_mod *fms,
 
 static enum ofperr
 ofputil_decode_ofpst_flow_request(struct ofputil_flow_stats_request *fsr,
-                                  const struct ofp10_flow_stats_request *ofsr,
+                                  uint8_t ofp_version, struct ofpbuf *b,
                                   bool aggregate)
 {
     fsr->aggregate = aggregate;
-    ofputil_cls_rule_from_ofp10_match(&ofsr->match, 0, &fsr->match);
-    fsr->out_port = ntohs(ofsr->out_port);
-    fsr->table_id = ofsr->table_id;
-    fsr->cookie = fsr->cookie_mask = htonll(0);
+
+    if (ofp_version == OFP10_VERSION) {
+        const struct ofp10_flow_stats_request *ofsr = b->data;
+
+        ofputil_cls_rule_from_ofp10_match(&ofsr->match, 0, &fsr->match);
+        fsr->out_port = ntohs(ofsr->out_port);
+        fsr->table_id = ofsr->table_id;
+        fsr->cookie = fsr->cookie_mask = htonll(0);
+    } else {
+        const struct ofp11_flow_stats_request *ofsr;
+        enum ofperr error;
+
+        ofsr = ofpbuf_pull(b, sizeof *ofsr);
+        fsr->table_id = ofsr->table_id;
+        error = ofputil_port_from_ofp11(ofsr->out_port, &fsr->out_port);
+        if (error) {
+            return error;
+        }
+        if (ofsr->out_group != htonl(OFPG_ANY)) {
+            return OFPERR_NXFMFC_GROUPS_NOT_SUPPORTED;
+        }
+        fsr->cookie = ofsr->cookie;
+        fsr->cookie_mask = ofsr->cookie_mask;
+        error = ofputil_pull_ofp12_match(b, 0, &fsr->match, NULL, NULL);
+        if (error) {
+            return error;
+        }
+    }
 
     return 0;
 }
@@ -2034,10 +2062,10 @@ ofputil_decode_flow_stats_request(struct ofputil_flow_stats_request *fsr,
     code = ofputil_msg_type_code(type);
     switch (code) {
     case OFPUTIL_OFPST10_FLOW_REQUEST:
-        return ofputil_decode_ofpst_flow_request(fsr, b.data, false);
+        return ofputil_decode_ofpst_flow_request(fsr, oh->version, &b, false);
 
     case OFPUTIL_OFPST10_AGGREGATE_REQUEST:
-        return ofputil_decode_ofpst_flow_request(fsr, b.data, true);
+        return ofputil_decode_ofpst_flow_request(fsr, oh->version, &b, true);
 
     case OFPUTIL_NXST_FLOW_REQUEST:
         return ofputil_decode_nxst_flow_request(fsr, &b, false);
