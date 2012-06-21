@@ -358,10 +358,11 @@ dump_transaction(const char *vconn_name, struct ofpbuf *request)
 }
 
 static void
-dump_trivial_transaction(const char *vconn_name, uint8_t request_type)
+dump_trivial_transaction(const char *vconn_name, uint8_t version,
+                         uint8_t request_type)
 {
     struct ofpbuf *request;
-    make_openflow(sizeof(struct ofp_header), OFP10_VERSION, request_type,
+    make_openflow(sizeof(struct ofp_header), version, request_type,
                   &request);
     dump_transaction(vconn_name, request);
 }
@@ -493,6 +494,7 @@ do_show(int argc OVS_UNUSED, char *argv[])
     struct ofpbuf *request;
     struct ofpbuf *reply;
     bool trunc;
+    uint8_t ofp_version;
 
     make_openflow(sizeof(struct ofp_header), vconn_get_version(vconn),
                   OFPT_FEATURES_REQUEST, &request);
@@ -503,6 +505,7 @@ do_show(int argc OVS_UNUSED, char *argv[])
     ofp_print(stdout, reply->data, reply->size, verbosity + 1);
 
     ofpbuf_delete(reply);
+    ofp_version = vconn_get_version(vconn);
     vconn_close(vconn);
 
     if (trunc) {
@@ -511,7 +514,7 @@ do_show(int argc OVS_UNUSED, char *argv[])
          * constraints. */
         dump_trivial_stats_transaction(vconn_name, OFPST_PORT_DESC);
     }
-    dump_trivial_transaction(vconn_name, OFPT_GET_CONFIG_REQUEST);
+    dump_trivial_transaction(vconn_name, ofp_version, OFPT_GET_CONFIG_REQUEST);
 }
 
 static void
