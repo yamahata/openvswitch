@@ -399,11 +399,12 @@ dump_stats_transaction(const char *vconn_name, struct ofpbuf *request)
 }
 
 static void
-dump_trivial_stats_transaction(const char *vconn_name, uint8_t stats_type)
+dump_trivial_stats_transaction(const char *vconn_name, uint8_t stats_type,
+                               uint8_t ofp_version)
 {
     struct ofpbuf *request;
 
-    ofputil_make_stats_request(0, stats_type, 0, &request);
+    ofputil_make_stats_request(0, ofp_version, stats_type, 0, &request);
     dump_stats_transaction(vconn_name, request);
 }
 
@@ -499,6 +500,7 @@ do_show(int argc OVS_UNUSED, char *argv[])
     make_openflow(sizeof(struct ofp_header), vconn_get_version(vconn),
                   OFPT_FEATURES_REQUEST, &request);
     open_vconn(vconn_name, &vconn);
+
     run(vconn_transact(vconn, request, &reply), "talking to %s", vconn_name);
 
     trunc = ofputil_switch_features_ports_trunc(reply);
@@ -512,7 +514,8 @@ do_show(int argc OVS_UNUSED, char *argv[])
         /* The Features Reply may not contain all the ports, so send a
          * Port Description stats request, which doesn't have size
          * constraints. */
-        dump_trivial_stats_transaction(vconn_name, OFPST_PORT_DESC);
+        dump_trivial_stats_transaction(vconn_name, OFPST_PORT_DESC,
+                                       ofp_version);
     }
     dump_trivial_transaction(vconn_name, ofp_version, OFPT_GET_CONFIG_REQUEST);
 }
@@ -520,13 +523,13 @@ do_show(int argc OVS_UNUSED, char *argv[])
 static void
 do_dump_desc(int argc OVS_UNUSED, char *argv[])
 {
-    dump_trivial_stats_transaction(argv[1], OFPST_DESC);
+    dump_trivial_stats_transaction(argv[1], OFPST_DESC, OFP10_VERSION);
 }
 
 static void
 do_dump_tables(int argc OVS_UNUSED, char *argv[])
 {
-    dump_trivial_stats_transaction(argv[1], OFPST_TABLE);
+    dump_trivial_stats_transaction(argv[1], OFPST_TABLE, OFP10_VERSION);
 }
 
 static bool
@@ -593,10 +596,12 @@ fetch_port_by_stats(const char *vconn_name,
     bool done = false;
     bool found = false;
 
-    ofputil_make_stats_request(0, OFPST_PORT_DESC, 0, &request);
+    open_vconn(vconn_name, &vconn);
+
+    ofputil_make_stats_request(0, vconn_get_version(vconn),
+                               OFPST_PORT_DESC, 0, &request);
     send_xid = ((struct ofp_header *) request->data)->xid;
 
-    open_vconn(vconn_name, &vconn);
     send_openflow_buffer(vconn, request);
     while (!done) {
         ovs_be32 recv_xid;
@@ -786,7 +791,8 @@ do_queue_stats(int argc, char *argv[])
     struct ofp10_queue_stats_request *req;
     struct ofpbuf *request;
 
-    req = ofputil_make_stats_request(sizeof *req, OFPST_QUEUE, 0, &request);
+    req = ofputil_make_stats_request(sizeof *req, OFP10_VERSION,
+                                     OFPST_QUEUE, 0, &request);
 
     if (argc > 2 && argv[2][0] && strcasecmp(argv[2], "all")) {
         req->port_no = htons(str_to_port_no(argv[1], argv[2]));
@@ -1197,7 +1203,8 @@ do_dump_ports(int argc, char *argv[])
     struct ofpbuf *request;
     uint16_t port;
 
-    req = ofputil_make_stats_request(sizeof *req, OFPST_PORT, 0, &request);
+    req = ofputil_make_stats_request(sizeof *req, OFP10_VERSION,
+                                     OFPST_PORT, 0, &request);
     port = argc > 2 ? str_to_port_no(argv[1], argv[2]) : OFPP_NONE;
     req->port_no = htons(port);
     dump_stats_transaction(argv[1], request);
@@ -1206,7 +1213,7 @@ do_dump_ports(int argc, char *argv[])
 static void
 do_dump_ports_desc(int argc OVS_UNUSED, char *argv[])
 {
-    dump_trivial_stats_transaction(argv[1], OFPST_PORT_DESC);
+    dump_trivial_stats_transaction(argv[1], OFPST_PORT_DESC, OFP10_VERSION);
 }
 
 static void
