@@ -224,6 +224,12 @@ ofpact_from_nxast(const union ofp_action *a, enum ofputil_action_code code,
     const struct nx_action_set_queue *nasq;
     const struct nx_action_note *nan;
     const struct nx_action_set_tunnel64 *nast64;
+    const struct nx_action_mpls_label *naml;
+    const struct nx_action_mpls_tc *namt;
+    const struct nx_action_mpls_ttl *nam_ttl;
+    const struct nx_action_push_mpls *na_push_m;
+    const struct nx_action_pop_mpls *na_pop_m;
+    const struct nx_action_push_vlan *napv;
     struct ofpact_tunnel *tunnel;
     enum ofperr error = 0;
 
@@ -321,6 +327,48 @@ ofpact_from_nxast(const union ofp_action *a, enum ofputil_action_code code,
     case OFPUTIL_NXAST_CONTROLLER:
         controller_from_openflow((const struct nx_action_controller *) a, out);
         break;
+
+    case OFPUTIL_NXAST_COPY_TTL_OUT:
+        ofpact_put_COPY_TTL_OUT(out);
+        break;
+
+    case OFPUTIL_NXAST_COPY_TTL_IN:
+        ofpact_put_COPY_TTL_IN(out);
+        break;
+
+    case OFPUTIL_NXAST_SET_MPLS_LABEL:
+        naml = (const struct nx_action_mpls_label *) a;
+        ofpact_put_SET_MPLS_LABEL(out)->mpls_label = naml->mpls_label;
+        break;
+
+    case OFPUTIL_NXAST_SET_MPLS_TC:
+        namt = (const struct nx_action_mpls_tc *)a;
+        ofpact_put_SET_MPLS_TC(out)->mpls_tc = namt->mpls_tc;
+        break;
+
+    case OFPUTIL_NXAST_SET_MPLS_TTL:
+        nam_ttl = (const struct nx_action_mpls_ttl *) a;
+        ofpact_put_SET_MPLS_TTL(out)->mpls_ttl = nam_ttl->mpls_ttl;
+        break;
+
+    case OFPUTIL_NXAST_DEC_MPLS_TTL:
+        ofpact_put_DEC_MPLS_TTL(out);
+        break;
+
+    case OFPUTIL_NXAST_PUSH_MPLS:
+        na_push_m = (const struct nx_action_push_mpls *) a;
+        ofpact_put_PUSH_MPLS(out)->ethertype = na_push_m->ethertype;
+        break;
+
+    case OFPUTIL_NXAST_POP_MPLS:
+        na_pop_m = (const struct nx_action_pop_mpls *) a;
+        ofpact_put_POP_MPLS(out)->ethertype = na_pop_m->ethertype;
+        break;
+
+    case OFPUTIL_NXAST_PUSH_VLAN:
+        napv = (const struct nx_action_push_vlan *) a;
+        ofpact_put_PUSH_VLAN(out)->tpid = napv->tpid;
+        break;
     }
 
     return error;
@@ -403,26 +451,9 @@ ofpact_from_openflow10(const union ofp_action *a, struct ofpbuf *out)
                                         out);
         break;
 
-    case OFPUTIL_NXAST_RESUBMIT:
-    case OFPUTIL_NXAST_SET_TUNNEL:
-    case OFPUTIL_NXAST_SET_QUEUE:
-    case OFPUTIL_NXAST_POP_QUEUE:
-    case OFPUTIL_NXAST_REG_MOVE:
-    case OFPUTIL_NXAST_REG_LOAD:
-    case OFPUTIL_NXAST_NOTE:
-    case OFPUTIL_NXAST_SET_TUNNEL64:
-    case OFPUTIL_NXAST_MULTIPATH:
-    case OFPUTIL_NXAST_AUTOPATH:
-    case OFPUTIL_NXAST_BUNDLE:
-    case OFPUTIL_NXAST_BUNDLE_LOAD:
-    case OFPUTIL_NXAST_OUTPUT_REG:
-    case OFPUTIL_NXAST_RESUBMIT_TABLE:
-    case OFPUTIL_NXAST_LEARN:
-    case OFPUTIL_NXAST_EXIT:
-    case OFPUTIL_NXAST_DEC_TTL:
-    case OFPUTIL_NXAST_FIN_TIMEOUT:
-    case OFPUTIL_NXAST_CONTROLLER:
-        return ofpact_from_nxast(a, code, out);
+#define NXAST_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME) case OFPUTIL_##ENUM:
+#include "ofp-util.def"
+	return ofpact_from_nxast(a, code, out);
     }
 
     return error;
@@ -636,28 +667,10 @@ ofpact_from_openflow11(const union ofp_action *a, struct ofpbuf *out)
 
     case OFPUTIL_OFPAT11_SET_TP_DST:
         ofpact_put_SET_L4_DST_PORT(out)->port = ntohs(a->tp_port.tp_port);
-
         break;
 
-    case OFPUTIL_NXAST_RESUBMIT:
-    case OFPUTIL_NXAST_SET_TUNNEL:
-    case OFPUTIL_NXAST_SET_QUEUE:
-    case OFPUTIL_NXAST_POP_QUEUE:
-    case OFPUTIL_NXAST_REG_MOVE:
-    case OFPUTIL_NXAST_REG_LOAD:
-    case OFPUTIL_NXAST_NOTE:
-    case OFPUTIL_NXAST_SET_TUNNEL64:
-    case OFPUTIL_NXAST_MULTIPATH:
-    case OFPUTIL_NXAST_AUTOPATH:
-    case OFPUTIL_NXAST_BUNDLE:
-    case OFPUTIL_NXAST_BUNDLE_LOAD:
-    case OFPUTIL_NXAST_OUTPUT_REG:
-    case OFPUTIL_NXAST_RESUBMIT_TABLE:
-    case OFPUTIL_NXAST_LEARN:
-    case OFPUTIL_NXAST_EXIT:
-    case OFPUTIL_NXAST_DEC_TTL:
-    case OFPUTIL_NXAST_FIN_TIMEOUT:
-    case OFPUTIL_NXAST_CONTROLLER:
+#define NXAST_ACTION(ENUM, STRUCT, EXTENSIBLE, NAME) case OFPUTIL_##ENUM:
+#include "ofp-util.def"
         return ofpact_from_nxast(a, code, out);
     }
 
@@ -886,6 +899,10 @@ static enum ofperr
 ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
 {
     const struct ofpact_enqueue *enqueue;
+    ovs_be16 etype;
+    ovs_be32 mpls_label;
+    uint8_t mpls_tc, mpls_ttl;
+    ovs_be16 vtpid;
 
     switch (a->type) {
     case OFPACT_END:
@@ -951,63 +968,56 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
     case OFPACT_EXIT:
         return 0;
 
-#if 0
-    /* XXX: TODO VVVVVVVVVVVVVVVV */
-        ovs_be16 etype;
-        ovs_be32 mpls_label;
-        uint8_t mpls_tc, mpls_ttl;
-
-    case OFPUTIL_NXAST_PUSH_MPLS:
-        etype = ((const struct nx_action_push_mpls *) a)->ethertype;
+    case OFPACT_PUSH_MPLS:
+        etype = ofpact_get_PUSH_MPLS(a)->ethertype;
         if (etype != htons(ETH_TYPE_MPLS) &&
             etype != htons(ETH_TYPE_MPLS_MCAST)) {
-            error = OFPERR_OFPBAC_BAD_ARGUMENT;
+            return OFPERR_OFPBAC_BAD_ARGUMENT;
         }
-        break;
+        return 0;
 
-    case OFPUTIL_NXAST_POP_MPLS:
-        etype = ((const struct nx_action_pop_mpls *) a)->ethertype;
+    case OFPACT_POP_MPLS:
+        etype = ofpact_get_POP_MPLS(a)->ethertype;
         if (etype == htons(ETH_TYPE_MPLS) ||
             etype == htons(ETH_TYPE_MPLS_MCAST)) {
-            error = OFPERR_OFPBAC_BAD_ARGUMENT;
+            return OFPERR_OFPBAC_BAD_ARGUMENT;
         }
-        break;
+        return 0;
 
-    case OFPUTIL_NXAST_SET_MPLS_LABEL:
-        mpls_label = ((const struct nx_action_mpls_label *) a)->mpls_label;
-        if (mpls_label & ~htonl(0x000fffff)) {
-            error = OFPERR_OFPBAC_BAD_ARGUMENT;
+    case OFPACT_SET_MPLS_LABEL:
+        mpls_label = ofpact_get_SET_MPLS_LABEL(a)->mpls_label;
+        if (mpls_label & ~htonl(MPLS_LABEL_MASK >> MPLS_LABEL_SHIFT)) {
+            return OFPERR_OFPBAC_BAD_ARGUMENT;
         }
-        break;
+        return 0;
 
-    case OFPUTIL_NXAST_SET_MPLS_TC:
-        mpls_tc = ((const struct nx_action_mpls_tc *) a)->mpls_tc;
-        if (mpls_tc & ~7) {
-            error = OFPERR_OFPBAC_BAD_ARGUMENT;
+    case OFPACT_SET_MPLS_TC:
+        mpls_tc = ofpact_get_SET_MPLS_TC(a)->mpls_tc;
+        if (mpls_tc & ~(MPLS_TC_MASK >> MPLS_TC_SHIFT)) {
+            return OFPERR_OFPBAC_BAD_ARGUMENT;
         }
-        break;
+        return 0;
 
-    case OFPUTIL_NXAST_SET_MPLS_TTL:
-        mpls_ttl = ((const struct nx_action_mpls_ttl *) a)->mpls_ttl;
+    case OFPACT_SET_MPLS_TTL:
+        mpls_ttl = ofpact_get_SET_MPLS_TTL(a)->mpls_ttl;
         if (mpls_ttl == 0 || mpls_ttl == 1) {
-            error = OFPERR_OFPBAC_BAD_ARGUMENT;
+            return OFPERR_OFPBAC_BAD_ARGUMENT;
         }
-        break;
+        return 0;
 
-    case OFPUTIL_NXAST_COPY_TTL_OUT:
-    case OFPUTIL_NXAST_COPY_TTL_IN:
-    case OFPUTIL_NXAST_DEC_MPLS_TTL:
-        break;
+    case OFPACT_COPY_TTL_OUT:
+    case OFPACT_COPY_TTL_IN:
+    case OFPACT_DEC_MPLS_TTL:
+        return 0;
 
-    case OFPUTIL_NXAST_PUSH_VLAN:
-        vtpid = ((const struct nx_action_push_vlan *) a)->tpid;
+    case OFPACT_PUSH_VLAN:
+        vtpid = ofpact_get_PUSH_VLAN(a)->tpid;
         if (vtpid != htons(ETH_TYPE_VLAN) &&
             vtpid != htons(ETH_TYPE_VLAN_8021AD)) {
-            error = OFPERR_OFPBAC_BAD_ARGUMENT;
+            return OFPERR_OFPBAC_BAD_ARGUMENT;
         }
-        break;
-    /* XXX: TODO ^^^^^^^^^^^^^^^^^ */
-#endif
+        return 0;
+
     default:
         NOT_REACHED();
     }
@@ -1120,6 +1130,14 @@ ofpact_fin_timeout_to_nxast(const struct ofpact_fin_timeout *fin_timeout,
 }
 
 static void
+ofpact_mpls_label_to_nxact(const struct ofpact_mpls_label *oml,
+                           struct ofpbuf *out)
+{
+    struct nx_action_mpls_label *naml = ofputil_put_NXAST_SET_MPLS_LABEL(out);
+    naml->mpls_label = oml->mpls_label;
+}
+
+static void
 ofpact_to_nxast(const struct ofpact *a, struct ofpbuf *out)
 {
     switch (a->type) {
@@ -1186,6 +1204,47 @@ ofpact_to_nxast(const struct ofpact *a, struct ofpbuf *out)
 
     case OFPACT_EXIT:
         ofputil_put_NXAST_EXIT(out);
+        break;
+
+    case OFPACT_COPY_TTL_OUT:
+        ofputil_put_NXAST_COPY_TTL_OUT(out);
+        break;
+
+    case OFPACT_COPY_TTL_IN:
+        ofputil_put_NXAST_COPY_TTL_IN(out);
+        break;
+
+    case OFPACT_SET_MPLS_LABEL:
+        ofputil_put_NXAST_SET_MPLS_LABEL(out)->mpls_label =
+            ofpact_get_SET_MPLS_LABEL(a)->mpls_label;
+        break;
+
+    case OFPACT_SET_MPLS_TC:
+        ofputil_put_NXAST_SET_MPLS_TC(out)->mpls_tc =
+            ofpact_get_SET_MPLS_TC(a)->mpls_tc;
+        break;
+
+    case OFPACT_SET_MPLS_TTL:
+        ofputil_put_NXAST_SET_MPLS_TTL(out)->mpls_ttl =
+            ofpact_get_SET_MPLS_TTL(a)->mpls_ttl;
+        break;
+
+    case OFPACT_DEC_MPLS_TTL:
+        ofputil_put_NXAST_DEC_MPLS_TTL(out);
+        break;
+
+    case OFPACT_PUSH_MPLS:
+        ofputil_put_NXAST_PUSH_MPLS(out)->ethertype =
+            ofpact_get_PUSH_MPLS(a)->ethertype;
+        break;
+
+    case OFPACT_POP_MPLS:
+        ofputil_put_NXAST_POP_MPLS(out)->ethertype =
+            ofpact_get_POP_MPLS(a)->ethertype;
+        break;
+
+    case OFPACT_PUSH_VLAN:
+        ofputil_put_NXAST_PUSH_VLAN(out)->tpid = ofpact_get_PUSH_VLAN(a)->tpid;
         break;
 
     case OFPACT_END:
@@ -1309,6 +1368,15 @@ ofpact_to_openflow10(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_AUTOPATH:
     case OFPACT_NOTE:
     case OFPACT_EXIT:
+    case OFPACT_COPY_TTL_OUT:
+    case OFPACT_COPY_TTL_IN:
+    case OFPACT_SET_MPLS_LABEL:
+    case OFPACT_SET_MPLS_TC:
+    case OFPACT_SET_MPLS_TTL:
+    case OFPACT_DEC_MPLS_TTL:
+    case OFPACT_PUSH_MPLS:
+    case OFPACT_POP_MPLS:
+    case OFPACT_PUSH_VLAN:
         ofpact_to_nxast(a, out);
         break;
     }
@@ -1419,6 +1487,15 @@ ofpact_to_openflow11(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_AUTOPATH:
     case OFPACT_NOTE:
     case OFPACT_EXIT:
+    case OFPACT_COPY_TTL_OUT:
+    case OFPACT_COPY_TTL_IN:
+    case OFPACT_SET_MPLS_LABEL:
+    case OFPACT_SET_MPLS_TC:
+    case OFPACT_SET_MPLS_TTL:
+    case OFPACT_DEC_MPLS_TTL:
+    case OFPACT_PUSH_MPLS:
+    case OFPACT_POP_MPLS:
+    case OFPACT_PUSH_VLAN:
         ofpact_to_nxast(a, out);
         break;
     }
@@ -1505,6 +1582,15 @@ ofpact_outputs_to_port(const struct ofpact *ofpact, uint16_t port)
     case OFPACT_AUTOPATH:
     case OFPACT_NOTE:
     case OFPACT_EXIT:
+    case OFPACT_COPY_TTL_OUT:
+    case OFPACT_COPY_TTL_IN:
+    case OFPACT_SET_MPLS_LABEL:
+    case OFPACT_SET_MPLS_TC:
+    case OFPACT_SET_MPLS_TTL:
+    case OFPACT_DEC_MPLS_TTL:
+    case OFPACT_PUSH_MPLS:
+    case OFPACT_POP_MPLS:
+    case OFPACT_PUSH_VLAN:
     default:
         return false;
     }
@@ -1751,52 +1837,48 @@ ofpact_format(const struct ofpact *a, struct ds *s)
     case OFPACT_EXIT:
         ds_put_cstr(s, "exit");
         break;
-#if 0
-    /* XXX: TODO VVVVVVVVVVVVVVVV */
-    case OFPUTIL_NXAST_SET_MPLS_LABEL:
-        naml = (const struct nx_action_mpls_label *) a;
-        ds_put_format(s, "set_mpls_label:%"PRIu32, ntohl(naml->mpls_label));
-        break;
 
-    case OFPUTIL_NXAST_SET_MPLS_TC:
-        namtc = (const struct nx_action_mpls_tc *) a;
-        ds_put_format(s, "set_mpls_tc:%"PRIu8, namtc->mpls_tc);
-        break;
-
-    case OFPUTIL_NXAST_SET_MPLS_TTL:
-        namttl = (const struct nx_action_mpls_ttl *) a;
-        ds_put_format(s, "set_mpls_ttl:%"PRIu8, namttl->mpls_ttl);
-        break;
-
-    case OFPUTIL_NXAST_DEC_MPLS_TTL:
-        ds_put_cstr(s, "dec_mpls_ttl");
-        break;
-
-    case OFPUTIL_NXAST_COPY_TTL_IN:
-        ds_put_cstr(s, "copy_ttl_in");
-        break;
-
-    case OFPUTIL_NXAST_COPY_TTL_OUT:
+    case OFPACT_COPY_TTL_OUT:
         ds_put_cstr(s, "copy_ttl_out");
         break;
 
-   case OFPUTIL_NXAST_PUSH_MPLS:
-        nampush = (const struct nx_action_push_mpls *) a;
-        ds_put_format(s, "push_mpls:0x%"PRIx16, ntohs(nampush->ethertype));
+    case OFPACT_COPY_TTL_IN:
+        ds_put_cstr(s, "copy_ttl_in");
         break;
 
-    case OFPUTIL_NXAST_POP_MPLS:
-        nampop = (const struct nx_action_pop_mpls *) a;
-        ds_put_format(s, "pop_mpls:0x%"PRIx16, ntohs(nampop->ethertype));
+    case OFPACT_SET_MPLS_LABEL:
+        ds_put_format(s, "set_mpls_label:%"PRIu32,
+                      ntohl(ofpact_get_SET_MPLS_LABEL(a)->mpls_label));
         break;
 
-   case OFPUTIL_NXAST_PUSH_VLAN:
-        navpush = (const struct nx_action_push_vlan *) a;
-        ds_put_format(s, "push_vlan:0x%"PRIx16, ntohs(navpush->tpid));
+    case OFPACT_SET_MPLS_TC:
+        ds_put_format(s, "set_mpls_tc:%"PRIu8,
+                      ofpact_get_SET_MPLS_TC(a)->mpls_tc);
         break;
-    /* XXX: TODO ^^^^^^^^^^^^^^^^^ */
-#endif
 
+    case OFPACT_SET_MPLS_TTL:
+        ds_put_format(s, "set_mpls_ttl:%"PRIu8,
+                      ofpact_get_SET_MPLS_TTL(a)->mpls_ttl);
+        break;
+
+    case OFPACT_DEC_MPLS_TTL:
+        ds_put_cstr(s, "dec_mpls_ttl");
+        break;
+
+    case OFPACT_PUSH_MPLS:
+        ds_put_format(s, "push_mpls:0x%"PRIx16,
+                      ntohs(ofpact_get_PUSH_MPLS(a)->ethertype));
+        break;
+
+    case OFPACT_POP_MPLS:
+        ds_put_format(s, "pop_mpls:0x%"PRIx16,
+                      ntohs(ofpact_get_POP_MPLS(a)->ethertype));
+        break;
+
+    case OFPACT_PUSH_VLAN:
+        ds_put_format(s, "push_vlan:0x%"PRIx16,
+                      ntohs(ofpact_get_PUSH_VLAN(a)->tpid));
+        break;
     }
 }
 

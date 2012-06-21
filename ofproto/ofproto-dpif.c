@@ -5403,17 +5403,10 @@ do_xlate_actions(const struct ofpact *ofpacts, struct action_xlate_ctx *ctx)
     }
     OFPACT_FOR_EACH (a, ofpacts) {
         struct ofpact_controller *controller;
-#if 0
-    /* XXX: TODO VVVVVVVVVVVVVVVV */
-        const struct nx_action_mpls_label *naml;
-        const struct nx_action_mpls_tc *namtc;
-        const struct nx_action_mpls_ttl *namttl;
-        const struct nx_action_push_mpls *nampush;
-        const struct nx_action_pop_mpls *nampop;
-        const struct nx_action_push_vlan *navpush;
         ovs_be32 mpls_label;
-    /* XXX: TODO ^^^^^^^^^^^^^^^^^ */
-#endif
+        uint32_t mpls_tc;
+        uint32_t mpls_ttl;
+        ovs_be16 vlan_tpid;
 
         if (ctx->exit) {
             break;
@@ -5568,83 +5561,75 @@ do_xlate_actions(const struct ofpact *ofpacts, struct action_xlate_ctx *ctx)
             xlate_fin_timeout(ctx, ofpact_get_FIN_TIMEOUT(a));
             break;
 
-#if 0
-    /* XXX: TODO VVVVVVVVVVVVVVVV */
-        case OFPUTIL_NXAST_DEC_TTL:
-            if (compose_dec_ttl(ctx)) {
-                goto out;
-            }
+        case OFPACT_PUSH_MPLS:
+            commit_mpls_push_action(&ctx->flow, &ctx->base_flow,
+                                    ctx->odp_actions,
+                                    ofpact_get_PUSH_MPLS(a)->ethertype);
             break;
 
-        case OFPUTIL_NXAST_PUSH_MPLS:
-            nampush = (const struct nx_action_push_mpls *) ia;
-            commit_mpls_push_action(&ctx->flow, &ctx->base_flow, ctx->odp_actions,
-                                    nampush->ethertype);
-            break;
-
-        case OFPUTIL_NXAST_POP_MPLS:
-            nampop = (const struct nx_action_pop_mpls *) ia;
-            ctx->flow.dl_type = nampop->ethertype;
-            commit_mpls_pop_action(&ctx->flow, &ctx->base_flow, ctx->odp_actions);
+        case OFPACT_POP_MPLS:
+            ctx->flow.dl_type = ofpact_get_POP_MPLS(a)->ethertype;
+            commit_mpls_pop_action(&ctx->flow, &ctx->base_flow,
+                                   ctx->odp_actions);
             if (ctx->flow.mpls_lse != htonl(0)) {
                 ctx->flow.mpls_lse = htonl(0);
             }
             break;
 
-        case OFPUTIL_NXAST_SET_MPLS_LABEL:
-            naml = (const struct nx_action_mpls_label *) ia;
-            mpls_label = htonl((ntohl(naml->mpls_label) << MPLS_LABEL_SHIFT));
+        case OFPACT_SET_MPLS_LABEL:
+            mpls_label = ofpact_get_SET_MPLS_LABEL(a)->mpls_label;
+            mpls_label = htonl(ntohl(mpls_label) << MPLS_LABEL_SHIFT);
             ctx->flow.mpls_lse &= ~htonl(MPLS_LABEL_MASK);
             ctx->flow.mpls_lse |= mpls_label;
-            commit_mpls_lse_action(&ctx->flow, &ctx->base_flow, ctx->odp_actions);
+            commit_mpls_lse_action(&ctx->flow, &ctx->base_flow,
+                                   ctx->odp_actions);
             break;
 
-        case OFPUTIL_NXAST_SET_MPLS_TC:
-            namtc = (const struct nx_action_mpls_tc *) ia;
+        case OFPACT_SET_MPLS_TC:
+            mpls_tc = ofpact_get_SET_MPLS_TC(a)->mpls_tc;
             ctx->flow.mpls_lse &= ~htonl(MPLS_TC_MASK);
-            ctx->flow.mpls_lse |= htonl((namtc->mpls_tc << MPLS_TC_SHIFT));
-            commit_mpls_lse_action(&ctx->flow, &ctx->base_flow, ctx->odp_actions);
+            ctx->flow.mpls_lse |= htonl(mpls_tc << MPLS_TC_SHIFT);
+            commit_mpls_lse_action(&ctx->flow, &ctx->base_flow,
+                                   ctx->odp_actions);
             break;
 
-        case OFPUTIL_NXAST_SET_MPLS_TTL:
-            namttl = (const struct nx_action_mpls_ttl *) ia;
+        case OFPACT_SET_MPLS_TTL:
+            mpls_ttl = ofpact_get_SET_MPLS_TTL(a)->mpls_ttl;
             ctx->flow.mpls_lse &= ~htonl(MPLS_TTL_MASK);
-            ctx->flow.mpls_lse |= htonl((namttl->mpls_ttl << MPLS_TTL_SHIFT));
-            commit_mpls_lse_action(&ctx->flow, &ctx->base_flow, ctx->odp_actions);
+            ctx->flow.mpls_lse |= htonl(mpls_ttl << MPLS_TTL_SHIFT);
+            commit_mpls_lse_action(&ctx->flow, &ctx->base_flow,
+                                   ctx->odp_actions);
             break;
 
-        case OFPUTIL_NXAST_DEC_MPLS_TTL:
+        case OFPACT_DEC_MPLS_TTL:
             compose_dec_mpls_ttl(ctx);
             break;
 
-        case OFPUTIL_NXAST_COPY_TTL_IN:
+        case OFPACT_COPY_TTL_IN:
             compose_copy_mpls_ttl_in(ctx);
             break;
 
-        case OFPUTIL_NXAST_COPY_TTL_OUT:
+        case OFPACT_COPY_TTL_OUT:
             compose_copy_mpls_ttl_out(ctx);
             break;
 
-        case OFPUTIL_NXAST_PUSH_VLAN:
+        case OFPACT_PUSH_VLAN:
+            vlan_tpid = ofpact_get_PUSH_VLAN(a)->tpid;
             if (ctx->base_flow.vlan_tci != 0) {
-                navpush = (const struct nx_action_push_vlan *) ia;
                 /* For actions configured as
                  * strip_vlan,push_vlan:0x8100/0x88a8 - Push a new vlan header.
                  * push_vlan:0x8100/0x88a8,strip_vlan - no-op. */
-                ctx->flow.vlan_tpid = navpush->tpid;
+                ctx->flow.vlan_tpid = vlan_tpid;
                 if (ctx->flow.vlan_tci != htons(0)) {
                     ctx->flow.vlan_qinq_tci = ctx->base_flow.vlan_tci;
                 } else {
                     ctx->flow.vlan_tci = ctx->base_flow.vlan_tci;
                 }
             } else if (ctx->flow.vlan_tci != htons(0)) {
-                navpush = (const struct nx_action_push_vlan *) ia;
-                ctx->flow.vlan_tpid = navpush->tpid;
+                ctx->flow.vlan_tpid = vlan_tpid;
                 ctx->flow.vlan_qinq_tci = ctx->flow.vlan_tci;
             }
             break;
-    /* XXX: TODO ^^^^^^^^^^^^^^^^^ */
-#endif
         }
     }
 
