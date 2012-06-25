@@ -48,6 +48,7 @@
 #include "ofproto-dpif-governor.h"
 #include "ofproto-dpif-sflow.h"
 #include "poll-loop.h"
+#include "set-field.h"
 #include "simap.h"
 #include "timer.h"
 #include "unaligned.h"
@@ -5446,8 +5447,8 @@ do_xlate_actions(const struct ofpact *ofpacts, struct action_xlate_ctx *ctx)
             break;
 
         case OFPACT_SET_FIELD:
-            /* TODO: this will be implemented by later patch */
-            NOT_REACHED();
+            set_field_execute(ofpact_get_SET_FIELD(a), &ctx->flow,
+                              &ctx->base_flow, ctx->odp_actions);
             break;
 
         case OFPACT_RESUBMIT:

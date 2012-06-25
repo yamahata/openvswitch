@@ -36,6 +36,7 @@
 #include "ofpbuf.h"
 #include "openflow/openflow.h"
 #include "packets.h"
+#include "set-field.h"
 #include "socket-util.h"
 #include "vconn.h"
 #include "vlog.h"
@@ -101,26 +102,6 @@ str_to_u64(const char *str)
         ovs_fatal(0, "invalid numeric format %s", str);
     }
     return value;
-}
-
-static void
-str_to_mac(const char *str, uint8_t mac[6])
-{
-    if (sscanf(str, ETH_ADDR_SCAN_FMT, ETH_ADDR_SCAN_ARGS(mac))
-        != ETH_ADDR_SCAN_COUNT) {
-        ovs_fatal(0, "invalid mac address %s", str);
-    }
-}
-
-static void
-str_to_ip(const char *str, ovs_be32 *ip)
-{
-    struct in_addr in_addr;
-
-    if (lookup_ip(str, &in_addr)) {
-        ovs_fatal(0, "%s: could not convert to IP address", str);
-    }
-    *ip = in_addr.s_addr;
 }
 
 static void
@@ -283,10 +264,6 @@ parse_named_action(enum ofputil_action_code code, const struct flow *flow,
                    char *arg, struct ofpbuf *ofpacts)
 {
     struct ofpact_tunnel *tunnel;
-    uint16_t vid;
-    ovs_be32 ip;
-    uint8_t pcp;
-    uint8_t tos;
 
     switch (code) {
     case OFPUTIL_ACTION_INVALID:
@@ -299,20 +276,12 @@ parse_named_action(enum ofputil_action_code code, const struct flow *flow,
 
     case OFPUTIL_OFPAT10_SET_VLAN_VID:
     case OFPUTIL_OFPAT11_SET_VLAN_VID:
-        vid = str_to_u32(arg);
-        if (vid & ~VLAN_VID_MASK) {
-            ovs_fatal(0, "%s: not a valid VLAN VID", arg);
-        }
-        ofpact_put_SET_VLAN_VID(ofpacts)->vlan_vid = vid;
+        set_field_parse_with_id(MFF_VLAN_VID, arg, ofpacts);
         break;
 
     case OFPUTIL_OFPAT10_SET_VLAN_PCP:
     case OFPUTIL_OFPAT11_SET_VLAN_PCP:
-        pcp = str_to_u32(arg);
-        if (pcp & ~7) {
-            ovs_fatal(0, "%s: not a valid VLAN PCP", arg);
-        }
-        ofpact_put_SET_VLAN_PCP(ofpacts)->vlan_pcp = pcp;
+        set_field_parse_with_id(MFF_VLAN_PCP, arg, ofpacts);
         break;
 
     case OFPUTIL_OFPAT10_STRIP_VLAN:
@@ -321,33 +290,27 @@ parse_named_action(enum ofputil_action_code code, const struct flow *flow,
 
     case OFPUTIL_OFPAT10_SET_DL_SRC:
     case OFPUTIL_OFPAT11_SET_DL_SRC:
-        str_to_mac(arg, ofpact_put_SET_ETH_SRC(ofpacts)->mac);
+        set_field_parse_with_id(MFF_ETH_SRC, arg, ofpacts);
         break;
 
     case OFPUTIL_OFPAT10_SET_DL_DST:
     case OFPUTIL_OFPAT11_SET_DL_DST:
-        str_to_mac(arg, ofpact_put_SET_ETH_DST(ofpacts)->mac);
+        set_field_parse_with_id(MFF_ETH_DST, arg, ofpacts);
         break;
 
     case OFPUTIL_OFPAT10_SET_NW_SRC:
     case OFPUTIL_OFPAT11_SET_NW_SRC:
-        str_to_ip(arg, &ip);
-        ofpact_put_SET_IPV4_SRC(ofpacts)->ipv4 = ip;
+        set_field_parse_with_id(MFF_IPV4_SRC, arg, ofpacts);
         break;
 
     case OFPUTIL_OFPAT10_SET_NW_DST:
     case OFPUTIL_OFPAT11_SET_NW_DST:
-        str_to_ip(arg, &ip);
-        ofpact_put_SET_IPV4_DST(ofpacts)->ipv4 = ip;
+        set_field_parse_with_id(MFF_IPV4_DST, arg, ofpacts);
         break;
 
     case OFPUTIL_OFPAT10_SET_NW_TOS:
     case OFPUTIL_OFPAT11_SET_NW_TOS:
-        tos = str_to_u32(arg);
-        if (tos & ~IP_DSCP_MASK) {
-            ovs_fatal(0, "%s: not a valid TOS", arg);
-        }
-        ofpact_put_SET_IPV4_DSCP(ofpacts)->dscp = tos;
+        set_field_parse_with_id(MFF_IP_DSCP, arg, ofpacts);
         break;
 
     case OFPUTIL_OFPAT10_SET_TP_SRC:
@@ -365,7 +328,7 @@ parse_named_action(enum ofputil_action_code code, const struct flow *flow,
         break;
 
     case OFPUTIL_OFPAT12_SET_FIELD:
-        NOT_REACHED();  /* This will be implemented by later patch */
+        set_field_parse(arg, ofpacts);
         break;
 
     case OFPUTIL_NXAST_RESUBMIT:

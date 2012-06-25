@@ -27,6 +27,7 @@
 #include "nx-match.h"
 #include "ofp-util.h"
 #include "ofpbuf.h"
+#include "set-field.h"
 #include "vlog.h"
 
 VLOG_DEFINE_THIS_MODULE(ofp_actions);
@@ -352,44 +353,37 @@ ofpact_from_openflow10(const union ofp_action *a, struct ofpbuf *out)
         if (a->vlan_vid.vlan_vid & ~htons(0xfff)) {
             return OFPERR_OFPBAC_BAD_ARGUMENT;
         }
-        ofpact_put_SET_VLAN_VID(out)->vlan_vid = ntohs(a->vlan_vid.vlan_vid);
-        break;
+        return set_field_put(out, MFF_VLAN_VID, &a->vlan_vid.vlan_vid);
 
     case OFPUTIL_OFPAT10_SET_VLAN_PCP:
         if (a->vlan_pcp.vlan_pcp & ~7) {
             return OFPERR_OFPBAC_BAD_ARGUMENT;
         }
-        ofpact_put_SET_VLAN_PCP(out)->vlan_pcp = a->vlan_pcp.vlan_pcp;
-        break;
+        return set_field_put(out, MFF_VLAN_PCP, &a->vlan_pcp.vlan_pcp);
 
     case OFPUTIL_OFPAT10_STRIP_VLAN:
         ofpact_put_STRIP_VLAN(out);
         break;
 
     case OFPUTIL_OFPAT10_SET_DL_SRC:
-        memcpy(ofpact_put_SET_ETH_SRC(out)->mac,
-               ((const struct ofp_action_dl_addr *) a)->dl_addr, ETH_ADDR_LEN);
-        break;
+        return set_field_put(out, MFF_ETH_SRC,
+                             ((const struct ofp_action_dl_addr *) a)->dl_addr);
 
     case OFPUTIL_OFPAT10_SET_DL_DST:
-        memcpy(ofpact_put_SET_ETH_DST(out)->mac,
-               ((const struct ofp_action_dl_addr *) a)->dl_addr, ETH_ADDR_LEN);
-        break;
+        return set_field_put(out, MFF_ETH_DST,
+                             ((const struct ofp_action_dl_addr *) a)->dl_addr);
 
     case OFPUTIL_OFPAT10_SET_NW_SRC:
-        ofpact_put_SET_IPV4_SRC(out)->ipv4 = a->nw_addr.nw_addr;
-        break;
+        return set_field_put(out, MFF_IPV4_SRC, &a->nw_addr.nw_addr);
 
     case OFPUTIL_OFPAT10_SET_NW_DST:
-        ofpact_put_SET_IPV4_DST(out)->ipv4 = a->nw_addr.nw_addr;
-        break;
+        return set_field_put(out, MFF_IPV4_DST, &a->nw_addr.nw_addr);
 
     case OFPUTIL_OFPAT10_SET_NW_TOS:
         if (a->nw_tos.nw_tos & ~IP_DSCP_MASK) {
             return OFPERR_OFPBAC_BAD_ARGUMENT;
         }
-        ofpact_put_SET_IPV4_DSCP(out)->dscp = a->nw_tos.nw_tos;
-        break;
+        return set_field_put(out, MFF_IP_DSCP, &a->nw_tos.nw_tos);
 
     case OFPUTIL_OFPAT10_SET_TP_SRC:
         ofpact_put_SET_L4_SRC_PORT(out)->port = ntohs(a->tp_port.tp_port);
@@ -581,40 +575,33 @@ ofpact_from_openflow11(const union ofp_action *a, struct ofpbuf *out)
         if (a->vlan_vid.vlan_vid & ~htons(0xfff)) {
             return OFPERR_OFPBAC_BAD_ARGUMENT;
         }
-        ofpact_put_SET_VLAN_VID(out)->vlan_vid = ntohs(a->vlan_vid.vlan_vid);
-        break;
+        return set_field_put(out, MFF_VLAN_VID, &a->vlan_vid.vlan_vid);
 
     case OFPUTIL_OFPAT11_SET_VLAN_PCP:
         if (a->vlan_pcp.vlan_pcp & ~7) {
             return OFPERR_OFPBAC_BAD_ARGUMENT;
         }
-        ofpact_put_SET_VLAN_PCP(out)->vlan_pcp = a->vlan_pcp.vlan_pcp;
-        break;
+        return set_field_put(out, MFF_VLAN_PCP, &a->vlan_pcp.vlan_pcp);
 
     case OFPUTIL_OFPAT11_SET_DL_SRC:
-        memcpy(ofpact_put_SET_ETH_SRC(out)->mac,
-               ((const struct ofp_action_dl_addr *) a)->dl_addr, ETH_ADDR_LEN);
-        break;
+        return set_field_put(out, MFF_ETH_SRC,
+                             ((const struct ofp_action_dl_addr *) a)->dl_addr);
 
     case OFPUTIL_OFPAT11_SET_DL_DST:
-        memcpy(ofpact_put_SET_ETH_DST(out)->mac,
-               ((const struct ofp_action_dl_addr *) a)->dl_addr, ETH_ADDR_LEN);
-        break;
+        return set_field_put(out, MFF_ETH_DST,
+                             ((const struct ofp_action_dl_addr *) a)->dl_addr);
 
     case OFPUTIL_OFPAT11_SET_NW_SRC:
-        ofpact_put_SET_IPV4_SRC(out)->ipv4 = a->nw_addr.nw_addr;
-        break;
+        return set_field_put(out, MFF_IPV4_SRC, &a->nw_addr.nw_addr);
 
     case OFPUTIL_OFPAT11_SET_NW_DST:
-        ofpact_put_SET_IPV4_DST(out)->ipv4 = a->nw_addr.nw_addr;
-        break;
+        return set_field_put(out, MFF_IPV4_DST, &a->nw_addr.nw_addr);
 
     case OFPUTIL_OFPAT11_SET_NW_TOS:
         if (a->nw_tos.nw_tos & ~IP_DSCP_MASK) {
             return OFPERR_OFPBAC_BAD_ARGUMENT;
         }
-        ofpact_put_SET_IPV4_DSCP(out)->dscp = a->nw_tos.nw_tos;
-        break;
+        return set_field_put(out, MFF_IP_DSCP, &a->nw_tos.nw_tos);
 
     case OFPUTIL_OFPAT11_SET_TP_SRC:
         ofpact_put_SET_L4_SRC_PORT(out)->port = ntohs(a->tp_port.tp_port);
@@ -893,9 +880,7 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
         return 0;
 
     case OFPACT_SET_FIELD:
-        /* TODO This will be implemented by the later patch */
-        NOT_REACHED();
-        break;
+        return set_field_check(ofpact_get_SET_FIELD(a), flow);
 
     case OFPACT_REG_MOVE:
         return nxm_reg_move_check(ofpact_get_REG_MOVE(a), flow);
@@ -1211,8 +1196,7 @@ ofpact_to_openflow10(const struct ofpact *a, struct ofpbuf *out)
         break;
 
     case OFPACT_SET_FIELD:
-        /* TODO: this will be implemented by later patch */
-        NOT_REACHED();
+        set_field_to_openflow10(ofpact_get_SET_FIELD(a), out);
         break;
 
     case OFPACT_CONTROLLER:
@@ -1326,8 +1310,7 @@ ofpact_to_openflow11(const struct ofpact *a, struct ofpbuf *out)
         break;
 
     case OFPACT_SET_FIELD:
-        /* TODO: this will be implemented by later patch */
-        NOT_REACHED();
+        set_field_to_openflow11(ofpact_get_SET_FIELD(a), out);
         break;
 
     case OFPACT_CONTROLLER:
@@ -1608,8 +1591,7 @@ ofpact_format(const struct ofpact *a, struct ds *s)
         break;
 
     case OFPACT_SET_FIELD:
-        /* TODO: this will be implemented by later patch */
-        NOT_REACHED();
+        set_field_format(ofpact_get_SET_FIELD(a), s);
         break;
 
     case OFPACT_REG_MOVE:
