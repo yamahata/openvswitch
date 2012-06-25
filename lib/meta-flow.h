@@ -58,6 +58,7 @@ enum mf_field_id {
 #if FLOW_N_REGS > 7
     MFF_REG7,                   /* be32 */
 #endif
+#define MFF_REG_END (MFF_REG0 + FLOW_N_REGS - 1)
 #if FLOW_N_REGS > 8
 #error
 #endif
