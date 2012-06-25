@@ -262,6 +262,8 @@ struct ofp12_action_set_field {
 };
 OFP_ASSERT(sizeof(struct ofp12_action_set_field) == 8);
 
+#define OFP12_ACTION_SET_FIELD_ALIGN	8
+
 /* OpenFlow 1.2 specific flags
  * (struct ofp12_flow_mod, member flags). */
 enum ofp12_flow_mod_flags {
