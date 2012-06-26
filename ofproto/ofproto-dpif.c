@@ -5429,6 +5429,7 @@ do_xlate_actions(const struct ofpact *ofpacts, struct action_xlate_ctx *ctx)
         const struct nx_action_push_vlan *navpush;
 #endif
         uint32_t mpls_ttl;
+        ovs_be16 vlan_tpid;
 
         if (ctx->exit) {
             break;
@@ -5473,7 +5474,7 @@ do_xlate_actions(const struct ofpact *ofpacts, struct action_xlate_ctx *ctx)
             }
             break;
 
-        case OFPACT_STRIP_VLAN:
+       case OFPACT_STRIP_VLAN:
             if (ctx->flow.vlan_tci != 0) {
                 ctx->flow.vlan_tci = htons(0);
                 ctx->flow.vlan_tpid = htons(0);
@@ -5635,28 +5636,23 @@ do_xlate_actions(const struct ofpact *ofpacts, struct action_xlate_ctx *ctx)
             compose_copy_mpls_ttl_out(ctx);
             break;
 
-#if 0
-        /* XXX: TODO VVVVVVVVVVVVVVVVV */
-        case OFPUTIL_NXAST_PUSH_VLAN:
+        case OFPACT_PUSH_VLAN:
+            vlan_tpid = ofpact_get_PUSH_VLAN(a)->tpid;
             if (ctx->base_flow.vlan_tci != 0) {
-                navpush = (const struct nx_action_push_vlan *) ia;
                 /* For actions configured as
                  * strip_vlan,push_vlan:0x8100/0x88a8 - Push a new vlan header.
                  * push_vlan:0x8100/0x88a8,strip_vlan - no-op. */
-                ctx->flow.vlan_tpid = navpush->tpid;
+                ctx->flow.vlan_tpid = vlan_tpid;
                 if (ctx->flow.vlan_tci != htons(0)) {
                     ctx->flow.vlan_qinq_tci = ctx->base_flow.vlan_tci;
                 } else {
                     ctx->flow.vlan_tci = ctx->base_flow.vlan_tci;
                 }
             } else if (ctx->flow.vlan_tci != htons(0)) {
-                navpush = (const struct nx_action_push_vlan *) ia;
-                ctx->flow.vlan_tpid = navpush->tpid;
+                ctx->flow.vlan_tpid = vlan_tpid;
                 ctx->flow.vlan_qinq_tci = ctx->flow.vlan_tci;
             }
             break;
-        /* XXX: TODO ^^^^^^^^^^^^^^^^^ */
-#endif
         }
     }
 

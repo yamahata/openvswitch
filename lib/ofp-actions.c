@@ -230,6 +230,7 @@ ofpact_from_nxast(const union ofp_action *a, enum ofputil_action_code code,
     const struct nx_action_mpls_ttl *nam_ttl;
     const struct nx_action_push_mpls *na_push_m;
     const struct nx_action_pop_mpls *na_pop_m;
+    const struct nx_action_push_vlan *napv;
     struct ofpact_tunnel *tunnel;
     enum ofperr error = 0;
 
@@ -364,6 +365,11 @@ ofpact_from_nxast(const union ofp_action *a, enum ofputil_action_code code,
     case OFPUTIL_NXAST_POP_MPLS:
         na_pop_m = (const struct nx_action_pop_mpls *) a;
         ofpact_put_POP_MPLS(out)->ethertype = na_pop_m->ethertype;
+        break;
+
+    case OFPUTIL_NXAST_PUSH_VLAN:
+        napv = (const struct nx_action_push_vlan *) a;
+        ofpact_put_PUSH_VLAN(out)->tpid = napv->tpid;
         break;
     }
 
@@ -965,6 +971,7 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
     ovs_be16 etype;
     ovs_be32 mpls_label;
     uint8_t mpls_tc, mpls_ttl;
+    ovs_be16 vtpid;
 
     switch (a->type) {
     case OFPACT_END:
@@ -1072,17 +1079,14 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
     case OFPACT_DEC_MPLS_TTL:
         return 0;
 
-#if 0
-    /* XXX: TODO VVVVVVVVVVVVVVVV */
-    case OFPUTIL_NXAST_PUSH_VLAN:
-        vtpid = ((const struct nx_action_push_vlan *) a)->tpid;
+    case OFPACT_PUSH_VLAN:
+        vtpid = ofpact_get_PUSH_VLAN(a)->tpid;
         if (vtpid != htons(ETH_TYPE_VLAN) &&
             vtpid != htons(ETH_TYPE_VLAN_8021AD)) {
-            error = OFPERR_OFPBAC_BAD_ARGUMENT;
+            return OFPERR_OFPBAC_BAD_ARGUMENT;
         }
-        break;
-    /* XXX: TODO ^^^^^^^^^^^^^^^^^ */
-#endif
+        return 0;
+
     default:
         NOT_REACHED();
     }
@@ -1308,6 +1312,10 @@ ofpact_to_nxast(const struct ofpact *a, struct ofpbuf *out)
             ofpact_get_POP_MPLS(a)->ethertype;
         break;
 
+    case OFPACT_PUSH_VLAN:
+        ofputil_put_NXAST_PUSH_VLAN(out)->tpid = ofpact_get_PUSH_VLAN(a)->tpid;
+        break;
+
     case OFPACT_END:
     case OFPACT_OUTPUT:
     case OFPACT_ENQUEUE:
@@ -1437,6 +1445,7 @@ ofpact_to_openflow10(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_DEC_MPLS_TTL:
     case OFPACT_PUSH_MPLS:
     case OFPACT_POP_MPLS:
+    case OFPACT_PUSH_VLAN:
         ofpact_to_nxast(a, out);
         break;
     }
@@ -1476,6 +1485,10 @@ ofpact_to_openflow11_common(const struct ofpact *a, struct ofpbuf *out)
         return ofpact_output_to_openflow11(ofpact_get_OUTPUT(a), out);
 
     case OFPACT_ENQUEUE:
+        /* XXX */
+        break;
+
+    case OFPACT_PUSH_VLAN:
         /* XXX */
         break;
 
@@ -1605,6 +1618,7 @@ ofpact_to_openflow11(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_AUTOPATH:
     case OFPACT_NOTE:
     case OFPACT_EXIT:
+    case OFPACT_PUSH_VLAN:      /* XXX */
         ofpact_to_nxast(a, out);
         break;
     }
@@ -1655,6 +1669,7 @@ ofpact_to_openflow12(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_DEC_MPLS_TTL:
     case OFPACT_PUSH_MPLS:
     case OFPACT_POP_MPLS:
+    case OFPACT_PUSH_VLAN:      /* XXX */
         ofpact_to_nxast(a, out);
         break;
     }
@@ -1765,6 +1780,7 @@ ofpact_outputs_to_port(const struct ofpact *ofpact, uint16_t port)
     case OFPACT_DEC_MPLS_TTL:
     case OFPACT_PUSH_MPLS:
     case OFPACT_POP_MPLS:
+    case OFPACT_PUSH_VLAN:
     default:
         return false;
     }
@@ -2044,18 +2060,14 @@ ofpact_format(const struct ofpact *a, struct ds *s)
                       ntohs(ofpact_get_PUSH_MPLS(a)->ethertype));
         break;
 
-#if 0
-    /* XXX: TODO VVVVVVVVVVVVVVVVV */
-   case OFPUTIL_NXAST_PUSH_VLAN:
-        navpush = (const struct nx_action_push_vlan *) a;
-        ds_put_format(s, "push_vlan:0x%"PRIx16, ntohs(navpush->tpid));
-        break;
-    /* XXX: TODO ^^^^^^^^^^^^^^^^^ */
-#endif
-
     case OFPACT_POP_MPLS:
         ds_put_format(s, "pop_mpls:0x%"PRIx16,
                       ntohs(ofpact_get_POP_MPLS(a)->ethertype));
+        break;
+
+    case OFPACT_PUSH_VLAN:
+        ds_put_format(s, "push_vlan:0x%"PRIx16,
+                      ntohs(ofpact_get_PUSH_VLAN(a)->tpid));
         break;
     }
 }
