@@ -99,6 +99,14 @@ set_field_to_nxact(const struct ofpact_set_field *set_field,
                    struct ofpbuf *out)
 {
     switch (set_field->mf->id) {
+    case MFF_MPLS_LABEL:
+        ofputil_put_NXAST_SET_MPLS_LABEL(out)->mpls_label =
+            set_field->value.be32;
+        break;
+    case MFF_MPLS_TC:
+        ofputil_put_NXAST_SET_MPLS_TC(out)->mpls_tc = set_field->value.be32;
+        break;
+
     case MFF_TUN_ID:
     case MFF_IN_PORT:
     case MFF_REG0 ... MFF_REG_END:
@@ -108,6 +116,7 @@ set_field_to_nxact(const struct ofpact_set_field *set_field,
     case MFF_VLAN_TCI:
     case MFF_VLAN_VID:
     case MFF_VLAN_PCP:
+    case MFF_MPLS_STACK:
     case MFF_IPV4_SRC:
     case MFF_IPV4_DST:
     case MFF_IPV6_SRC:
@@ -171,11 +180,18 @@ set_field_to_openflow10(const struct ofpact_set_field *set_field,
                             set_field);
         break;
 
+
+    case MFF_MPLS_LABEL:
+    case MFF_MPLS_TC:
+        /* for nx */
+        return false;
+
     case MFF_TUN_ID:
     case MFF_IN_PORT:
     case MFF_REG0 ... MFF_REG_END:
     case MFF_ETH_TYPE:
     case MFF_VLAN_TCI:
+    case MFF_MPLS_STACK:
     case MFF_IPV6_SRC:
     case MFF_IPV6_DST:
     case MFF_IPV6_LABEL:
@@ -238,11 +254,17 @@ set_field_to_openflow11(const struct ofpact_set_field *set_field,
                             set_field);
         break;
 
+    case MFF_MPLS_LABEL:
+    case MFF_MPLS_TC:
+        /* fallback to NX */
+        return false;
+
     case MFF_TUN_ID:
     case MFF_IN_PORT:
     case MFF_REG0 ... MFF_REG_END:
     case MFF_ETH_TYPE:
     case MFF_VLAN_TCI:
+    case MFF_MPLS_STACK:
     case MFF_IPV6_SRC:
     case MFF_IPV6_DST:
     case MFF_IPV6_LABEL:
@@ -360,6 +382,15 @@ struct format_prefix format_prefix[] = {
     }, {
         .id = MFF_IP_DSCP,
         .prefix = "mod_nw_tos",
+    }, {
+        .id = MFF_MPLS_LABEL,
+        .prefix = "set_mpls_label",
+    }, {
+        .id = MFF_MPLS_TC,
+        .prefix = "set_mpls_tc",
+    }, {
+        .id = MFF_MPLS_STACK,
+        .prefix = "set_mpls_stack",
     },
 };
 
@@ -396,8 +427,19 @@ set_field_execute(const struct ofpact_set_field *set_field,
         }
         break;
 
+    case MFF_MPLS_LABEL:
+        mf_set_flow_value(set_field->mf, &set_field->value, flow);
+        commit_mpls_lse_action(flow, base_flow, odp_actions);
+        break;
+
+    case MFF_MPLS_TC:
+        mf_set_flow_value(set_field->mf, &set_field->value, flow);
+        commit_mpls_lse_action(flow, base_flow, odp_actions);
+        break;
+
     case MFF_ETH_SRC:
     case MFF_ETH_DST:
+    case MFF_MPLS_STACK:
     case MFF_VLAN_VID:
     case MFF_VLAN_PCP:
     case MFF_IPV4_SRC:
