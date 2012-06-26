@@ -994,6 +994,9 @@ nxm_reg_load_check(const struct ofpact_reg_load *load, const struct flow *flow)
         case MFF_IPV4_DST:
         case MFF_ETH_TYPE:
         case MFF_VLAN_TCI:
+        case MFF_VLAN_TPID:
+        case MFF_VLAN_QINQ_VID:
+        case MFF_VLAN_QINQ_PCP:
         case MFF_IP_PROTO:
         case MFF_IP_ECN:
         case MFF_IP_DSCP:
