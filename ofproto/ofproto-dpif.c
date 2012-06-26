@@ -5445,6 +5445,11 @@ do_xlate_actions(const struct ofpact *ofpacts, struct action_xlate_ctx *ctx)
             ctx->flow.tp_dst = htons(ofpact_get_SET_L4_DST_PORT(a)->port);
             break;
 
+        case OFPACT_SET_FIELD:
+            /* TODO: this will be implemented by later patch */
+            NOT_REACHED();
+            break;
+
         case OFPACT_RESUBMIT:
             xlate_ofpact_resubmit(ctx, ofpact_get_RESUBMIT(a));
             break;

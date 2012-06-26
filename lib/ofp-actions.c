@@ -892,6 +892,11 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
     case OFPACT_SET_L4_DST_PORT:
         return 0;
 
+    case OFPACT_SET_FIELD:
+        /* TODO This will be implemented by the later patch */
+        NOT_REACHED();
+        break;
+
     case OFPACT_REG_MOVE:
         return nxm_reg_move_check(ofpact_get_REG_MOVE(a), flow);
 
@@ -1112,6 +1117,7 @@ ofpact_to_nxast(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_SET_IPV4_DSCP:
     case OFPACT_SET_L4_SRC_PORT:
     case OFPACT_SET_L4_DST_PORT:
+    case OFPACT_SET_FIELD:
         NOT_REACHED();
     }
 }
@@ -1202,6 +1208,11 @@ ofpact_to_openflow10(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_SET_L4_DST_PORT:
         ofputil_put_OFPAT10_SET_TP_DST(out)->tp_port
             = htons(ofpact_get_SET_L4_DST_PORT(a)->port);
+        break;
+
+    case OFPACT_SET_FIELD:
+        /* TODO: this will be implemented by later patch */
+        NOT_REACHED();
         break;
 
     case OFPACT_CONTROLLER:
@@ -1314,6 +1325,11 @@ ofpact_to_openflow11(const struct ofpact *a, struct ofpbuf *out)
             = htons(ofpact_get_SET_L4_DST_PORT(a)->port);
         break;
 
+    case OFPACT_SET_FIELD:
+        /* TODO: this will be implemented by later patch */
+        NOT_REACHED();
+        break;
+
     case OFPACT_CONTROLLER:
     case OFPACT_OUTPUT_REG:
     case OFPACT_BUNDLE:
@@ -1403,6 +1419,7 @@ ofpact_outputs_to_port(const struct ofpact *ofpact, uint16_t port)
     case OFPACT_SET_IPV4_DSCP:
     case OFPACT_SET_L4_SRC_PORT:
     case OFPACT_SET_L4_DST_PORT:
+    case OFPACT_SET_FIELD:
     case OFPACT_REG_MOVE:
     case OFPACT_REG_LOAD:
     case OFPACT_DEC_TTL:
@@ -1588,6 +1605,11 @@ ofpact_format(const struct ofpact *a, struct ds *s)
 
     case OFPACT_SET_L4_DST_PORT:
         ds_put_format(s, "mod_tp_dst:%d", ofpact_get_SET_L4_DST_PORT(a)->port);
+        break;
+
+    case OFPACT_SET_FIELD:
+        /* TODO: this will be implemented by later patch */
+        NOT_REACHED();
         break;
 
     case OFPACT_REG_MOVE:

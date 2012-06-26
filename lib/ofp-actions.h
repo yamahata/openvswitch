@@ -73,6 +73,7 @@
     DEFINE_OFPACT(REG_MOVE,        ofpact_reg_move,      ofpact)    \
     DEFINE_OFPACT(REG_LOAD,        ofpact_reg_load,      ofpact)    \
     DEFINE_OFPACT(DEC_TTL,         ofpact_null,          ofpact)    \
+    DEFINE_OFPACT(SET_FIELD,       ofpact_set_field,     ofpact)    \
                                                                     \
     /* Metadata. */                                                 \
     DEFINE_OFPACT(SET_TUNNEL,      ofpact_tunnel,        ofpact)    \
@@ -376,6 +377,15 @@ struct ofpact_note {
     struct ofpact ofpact;
     size_t length;
     uint8_t data[];
+};
+
+/* OFPACT_SET_FIELD
+ *
+ * used for OFPAT12_SET_FIELD */
+struct ofpact_set_field {
+    struct ofpact ofpact;
+    const struct mf_field *mf;
+    union mf_value value;
 };
 
 /* Converting OpenFlow to ofpacts. */
