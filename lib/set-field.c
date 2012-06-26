@@ -116,6 +116,9 @@ set_field_to_nxact(const struct ofpact_set_field *set_field,
     case MFF_VLAN_TCI:
     case MFF_VLAN_VID:
     case MFF_VLAN_PCP:
+    case MFF_VLAN_TPID:
+    case MFF_VLAN_QINQ_VID:
+    case MFF_VLAN_QINQ_PCP:
     case MFF_MPLS_STACK:
     case MFF_IPV4_SRC:
     case MFF_IPV4_DST:
@@ -191,6 +194,9 @@ set_field_to_openflow10(const struct ofpact_set_field *set_field,
     case MFF_REG0 ... MFF_REG_END:
     case MFF_ETH_TYPE:
     case MFF_VLAN_TCI:
+    case MFF_VLAN_TPID:
+    case MFF_VLAN_QINQ_VID:
+    case MFF_VLAN_QINQ_PCP:
     case MFF_MPLS_STACK:
     case MFF_IPV6_SRC:
     case MFF_IPV6_DST:
@@ -264,6 +270,9 @@ set_field_to_openflow11(const struct ofpact_set_field *set_field,
     case MFF_REG0 ... MFF_REG_END:
     case MFF_ETH_TYPE:
     case MFF_VLAN_TCI:
+    case MFF_VLAN_TPID:
+    case MFF_VLAN_QINQ_VID:
+    case MFF_VLAN_QINQ_PCP:
     case MFF_MPLS_STACK:
     case MFF_IPV6_SRC:
     case MFF_IPV6_DST:
@@ -476,6 +485,9 @@ set_field_execute(const struct ofpact_set_field *set_field,
     case MFF_TUN_ID:
     case MFF_IN_PORT:
     case MFF_REG0 ... MFF_REG_END:
+    case MFF_VLAN_TPID:
+    case MFF_VLAN_QINQ_VID:
+    case MFF_VLAN_QINQ_PCP:
     case MFF_IP_TTL:
     case MFF_IP_FRAG:
     case MFF_IPV6_LABEL:

@@ -265,10 +265,6 @@ parse_named_action(enum ofputil_action_code code, const struct flow *flow,
 {
     struct ofpact_tunnel *tunnel;
 
-    /* XXX: TODO VVVVVVVVVVVVVVVVV */
-    struct nx_action_push_vlan *navpush;
-    /* XXX: TODO ^^^^^^^^^^^^^^^^^ */
-
     switch (code) {
     case OFPUTIL_ACTION_INVALID:
         NOT_REACHED();
@@ -422,13 +418,6 @@ parse_named_action(enum ofputil_action_code code, const struct flow *flow,
         set_field_parse_with_id(MFF_MPLS_TC, arg, ofpacts);
         break;
 
-    /* XXX: TODO VVVVVVVVVVVVVVVVV */
-    case OFPUTIL_NXAST_PUSH_VLAN:
-        navpush = ofputil_put_NXAST_PUSH_VLAN(b);
-        navpush->tpid = htons(str_to_u32(arg));
-        break;
-    /* XXX: TODO ^^^^^^^^^^^^^^^^^ */
-
     case OFPUTIL_NXAST_SET_MPLS_TTL:
         ofpact_put_SET_MPLS_TTL(ofpacts)->mpls_ttl = str_to_u32(arg);
         break;
@@ -445,6 +434,10 @@ parse_named_action(enum ofputil_action_code code, const struct flow *flow,
     case OFPUTIL_NXAST_POP_MPLS:
         ofpact_put_POP_MPLS(ofpacts)->ethertype =
             htons(str_to_u16(arg, "pop_mpls"));
+        break;
+
+    case OFPUTIL_NXAST_PUSH_VLAN:
+        ofpact_put_PUSH_VLAN(ofpacts)->tpid = htons(str_to_u32(arg));
         break;
     }
 }
