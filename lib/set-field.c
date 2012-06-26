@@ -107,6 +107,15 @@ struct format_prefix format_prefix[] = {
     }, {
         .id = MFF_IP_DSCP,
         .prefix = "mod_nw_tos",
+    }, {
+        .id = MFF_MPLS_LABEL,
+        .prefix = "set_mpls_label",
+    }, {
+        .id = MFF_MPLS_TC,
+        .prefix = "set_mpls_tc",
+    }, {
+        .id = MFF_MPLS_STACK,
+        .prefix = "set_mpls_stack",
     },
 };
 

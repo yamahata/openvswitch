@@ -1001,6 +1001,9 @@ nxm_reg_load_check(const struct ofpact_reg_load *load, const struct flow *flow)
         case MFF_ND_TARGET:
         case MFF_ND_SLL:
         case MFF_ND_TLL:
+        case MFF_MPLS_LABEL:
+        case MFF_MPLS_TC:
+        case MFF_MPLS_STACK:
             break;
 
         case MFF_TUN_ID:
