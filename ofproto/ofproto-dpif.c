@@ -5412,8 +5412,6 @@ do_xlate_actions(const struct ofpact *ofpacts, struct action_xlate_ctx *ctx)
     }
     OFPACT_FOR_EACH (a, ofpacts) {
         struct ofpact_controller *controller;
-        ovs_be32 mpls_label;
-        uint32_t mpls_tc;
         uint32_t mpls_ttl;
 
         if (ctx->exit) {
@@ -5537,23 +5535,6 @@ do_xlate_actions(const struct ofpact *ofpacts, struct action_xlate_ctx *ctx)
             if (ctx->flow.mpls_lse != htonl(0)) {
                 ctx->flow.mpls_lse = htonl(0);
             }
-            break;
-
-        case OFPACT_SET_MPLS_LABEL:
-            mpls_label = ofpact_get_SET_MPLS_LABEL(a)->mpls_label;
-            mpls_label = htonl(ntohl(mpls_label) << MPLS_LABEL_SHIFT);
-            ctx->flow.mpls_lse &= ~htonl(MPLS_LABEL_MASK);
-            ctx->flow.mpls_lse |= mpls_label;
-            commit_mpls_lse_action(&ctx->flow, &ctx->base_flow,
-                                   ctx->odp_actions);
-            break;
-
-        case OFPACT_SET_MPLS_TC:
-            mpls_tc = ofpact_get_SET_MPLS_TC(a)->mpls_tc;
-            ctx->flow.mpls_lse &= ~htonl(MPLS_TC_MASK);
-            ctx->flow.mpls_lse |= htonl(mpls_tc << MPLS_TC_SHIFT);
-            commit_mpls_lse_action(&ctx->flow, &ctx->base_flow,
-                                   ctx->odp_actions);
             break;
 
         case OFPACT_SET_MPLS_TTL:

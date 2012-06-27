@@ -411,12 +411,11 @@ parse_named_action(enum ofputil_action_code code, const struct flow *flow,
         break;
 
     case OFPUTIL_NXAST_SET_MPLS_LABEL:
-        ofpact_put_SET_MPLS_LABEL(ofpacts)->mpls_label =
-            htonl(str_to_u32(arg));
+        set_field_parse_with_id(MFF_MPLS_LABEL, arg, ofpacts);
         break;
 
     case OFPUTIL_NXAST_SET_MPLS_TC:
-        ofpact_put_SET_MPLS_TC(ofpacts)->mpls_tc = str_to_u32(arg);
+        set_field_parse_with_id(MFF_MPLS_TC, arg, ofpacts);
         break;
 
     case OFPUTIL_NXAST_SET_MPLS_TTL:
