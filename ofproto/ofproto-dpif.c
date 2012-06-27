@@ -5395,47 +5395,8 @@ do_xlate_actions(const struct ofpact *ofpacts, struct action_xlate_ctx *ctx)
             xlate_enqueue_action(ctx, ofpact_get_ENQUEUE(a));
             break;
 
-        case OFPACT_SET_VLAN_VID:
-            ctx->flow.vlan_tci &= ~htons(VLAN_VID_MASK);
-            ctx->flow.vlan_tci |= (htons(ofpact_get_SET_VLAN_VID(a)->vlan_vid)
-                                   | htons(VLAN_CFI));
-            break;
-
-        case OFPACT_SET_VLAN_PCP:
-            ctx->flow.vlan_tci &= ~htons(VLAN_PCP_MASK);
-            ctx->flow.vlan_tci |= htons((ofpact_get_SET_VLAN_PCP(a)->vlan_pcp
-                                         << VLAN_PCP_SHIFT)
-                                        | VLAN_CFI);
-            break;
-
         case OFPACT_STRIP_VLAN:
             ctx->flow.vlan_tci = htons(0);
-            break;
-
-        case OFPACT_SET_ETH_SRC:
-            memcpy(ctx->flow.dl_src, ofpact_get_SET_ETH_SRC(a)->mac,
-                   ETH_ADDR_LEN);
-            break;
-
-        case OFPACT_SET_ETH_DST:
-            memcpy(ctx->flow.dl_dst, ofpact_get_SET_ETH_DST(a)->mac,
-                   ETH_ADDR_LEN);
-            break;
-
-        case OFPACT_SET_IPV4_SRC:
-            ctx->flow.nw_src = ofpact_get_SET_IPV4_SRC(a)->ipv4;
-            break;
-
-        case OFPACT_SET_IPV4_DST:
-            ctx->flow.nw_dst = ofpact_get_SET_IPV4_DST(a)->ipv4;
-            break;
-
-        case OFPACT_SET_IPV4_DSCP:
-            /* OpenFlow 1.0 only supports IPv4. */
-            if (ctx->flow.dl_type == htons(ETH_TYPE_IP)) {
-                ctx->flow.nw_tos &= ~IP_DSCP_MASK;
-                ctx->flow.nw_tos |= ofpact_get_SET_IPV4_DSCP(a)->dscp;
-            }
             break;
 
         case OFPACT_SET_L4_SRC_PORT:

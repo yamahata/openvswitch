@@ -867,14 +867,7 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
     case OFPACT_BUNDLE:
         return bundle_check(ofpact_get_BUNDLE(a), max_ports, flow);
 
-    case OFPACT_SET_VLAN_VID:
-    case OFPACT_SET_VLAN_PCP:
     case OFPACT_STRIP_VLAN:
-    case OFPACT_SET_ETH_SRC:
-    case OFPACT_SET_ETH_DST:
-    case OFPACT_SET_IPV4_SRC:
-    case OFPACT_SET_IPV4_DST:
-    case OFPACT_SET_IPV4_DSCP:
     case OFPACT_SET_L4_SRC_PORT:
     case OFPACT_SET_L4_DST_PORT:
         return 0;
@@ -1092,14 +1085,7 @@ ofpact_to_nxast(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_END:
     case OFPACT_OUTPUT:
     case OFPACT_ENQUEUE:
-    case OFPACT_SET_VLAN_VID:
-    case OFPACT_SET_VLAN_PCP:
     case OFPACT_STRIP_VLAN:
-    case OFPACT_SET_ETH_SRC:
-    case OFPACT_SET_ETH_DST:
-    case OFPACT_SET_IPV4_SRC:
-    case OFPACT_SET_IPV4_DST:
-    case OFPACT_SET_IPV4_DSCP:
     case OFPACT_SET_L4_SRC_PORT:
     case OFPACT_SET_L4_DST_PORT:
     case OFPACT_SET_FIELD:
@@ -1146,43 +1132,8 @@ ofpact_to_openflow10(const struct ofpact *a, struct ofpbuf *out)
         ofpact_enqueue_to_openflow10(ofpact_get_ENQUEUE(a), out);
         break;
 
-    case OFPACT_SET_VLAN_VID:
-        ofputil_put_OFPAT10_SET_VLAN_VID(out)->vlan_vid
-            = htons(ofpact_get_SET_VLAN_VID(a)->vlan_vid);
-        break;
-
-    case OFPACT_SET_VLAN_PCP:
-        ofputil_put_OFPAT10_SET_VLAN_PCP(out)->vlan_pcp
-            = ofpact_get_SET_VLAN_PCP(a)->vlan_pcp;
-        break;
-
     case OFPACT_STRIP_VLAN:
         ofputil_put_OFPAT10_STRIP_VLAN(out);
-        break;
-
-    case OFPACT_SET_ETH_SRC:
-        memcpy(ofputil_put_OFPAT10_SET_DL_SRC(out)->dl_addr,
-               ofpact_get_SET_ETH_SRC(a)->mac, ETH_ADDR_LEN);
-        break;
-
-    case OFPACT_SET_ETH_DST:
-        memcpy(ofputil_put_OFPAT10_SET_DL_DST(out)->dl_addr,
-               ofpact_get_SET_ETH_DST(a)->mac, ETH_ADDR_LEN);
-        break;
-
-    case OFPACT_SET_IPV4_SRC:
-        ofputil_put_OFPAT10_SET_NW_SRC(out)->nw_addr
-            = ofpact_get_SET_IPV4_SRC(a)->ipv4;
-        break;
-
-    case OFPACT_SET_IPV4_DST:
-        ofputil_put_OFPAT10_SET_NW_DST(out)->nw_addr
-            = ofpact_get_SET_IPV4_DST(a)->ipv4;
-        break;
-
-    case OFPACT_SET_IPV4_DSCP:
-        ofputil_put_OFPAT10_SET_NW_TOS(out)->nw_tos
-            = ofpact_get_SET_IPV4_DSCP(a)->dscp;
         break;
 
     case OFPACT_SET_L4_SRC_PORT:
@@ -1196,8 +1147,10 @@ ofpact_to_openflow10(const struct ofpact *a, struct ofpbuf *out)
         break;
 
     case OFPACT_SET_FIELD:
-        set_field_to_openflow10(ofpact_get_SET_FIELD(a), out);
-        break;
+        if (set_field_to_openflow10(ofpact_get_SET_FIELD(a), out)) {
+            break;
+        }
+        /* fallthrough for nx */
 
     case OFPACT_CONTROLLER:
     case OFPACT_OUTPUT_REG:
@@ -1260,43 +1213,8 @@ ofpact_to_openflow11(const struct ofpact *a, struct ofpbuf *out)
         /* XXX */
         break;
 
-    case OFPACT_SET_VLAN_VID:
-        ofputil_put_OFPAT11_SET_VLAN_VID(out)->vlan_vid
-            = htons(ofpact_get_SET_VLAN_VID(a)->vlan_vid);
-        break;
-
-    case OFPACT_SET_VLAN_PCP:
-        ofputil_put_OFPAT11_SET_VLAN_PCP(out)->vlan_pcp
-            = ofpact_get_SET_VLAN_PCP(a)->vlan_pcp;
-        break;
-
     case OFPACT_STRIP_VLAN:
         /* XXX */
-        break;
-
-    case OFPACT_SET_ETH_SRC:
-        memcpy(ofputil_put_OFPAT11_SET_DL_SRC(out)->dl_addr,
-               ofpact_get_SET_ETH_SRC(a)->mac, ETH_ADDR_LEN);
-        break;
-
-    case OFPACT_SET_ETH_DST:
-        memcpy(ofputil_put_OFPAT11_SET_DL_DST(out)->dl_addr,
-               ofpact_get_SET_ETH_DST(a)->mac, ETH_ADDR_LEN);
-        break;
-
-    case OFPACT_SET_IPV4_SRC:
-        ofputil_put_OFPAT11_SET_NW_SRC(out)->nw_addr
-            = ofpact_get_SET_IPV4_SRC(a)->ipv4;
-        break;
-
-    case OFPACT_SET_IPV4_DST:
-        ofputil_put_OFPAT11_SET_NW_DST(out)->nw_addr
-            = ofpact_get_SET_IPV4_DST(a)->ipv4;
-        break;
-
-    case OFPACT_SET_IPV4_DSCP:
-        ofputil_put_OFPAT11_SET_NW_TOS(out)->nw_tos
-            = ofpact_get_SET_IPV4_DSCP(a)->dscp;
         break;
 
     case OFPACT_SET_L4_SRC_PORT:
@@ -1310,8 +1228,10 @@ ofpact_to_openflow11(const struct ofpact *a, struct ofpbuf *out)
         break;
 
     case OFPACT_SET_FIELD:
-        set_field_to_openflow11(ofpact_get_SET_FIELD(a), out);
-        break;
+        if (set_field_to_openflow11(ofpact_get_SET_FIELD(a), out)) {
+            break;
+        }
+        /* fallthrough for NX */
 
     case OFPACT_CONTROLLER:
     case OFPACT_OUTPUT_REG:
@@ -1392,14 +1312,7 @@ ofpact_outputs_to_port(const struct ofpact *ofpact, uint16_t port)
     case OFPACT_END:
     case OFPACT_OUTPUT_REG:
     case OFPACT_BUNDLE:
-    case OFPACT_SET_VLAN_VID:
-    case OFPACT_SET_VLAN_PCP:
     case OFPACT_STRIP_VLAN:
-    case OFPACT_SET_ETH_SRC:
-    case OFPACT_SET_ETH_DST:
-    case OFPACT_SET_IPV4_SRC:
-    case OFPACT_SET_IPV4_DST:
-    case OFPACT_SET_IPV4_DSCP:
     case OFPACT_SET_L4_SRC_PORT:
     case OFPACT_SET_L4_DST_PORT:
     case OFPACT_SET_FIELD:
@@ -1544,42 +1457,8 @@ ofpact_format(const struct ofpact *a, struct ds *s)
         bundle_format(ofpact_get_BUNDLE(a), s);
         break;
 
-    case OFPACT_SET_VLAN_VID:
-        ds_put_format(s, "mod_vlan_vid:%"PRIu16,
-                      ofpact_get_SET_VLAN_VID(a)->vlan_vid);
-        break;
-
-    case OFPACT_SET_VLAN_PCP:
-        ds_put_format(s, "mod_vlan_pcp:%"PRIu8,
-                      ofpact_get_SET_VLAN_PCP(a)->vlan_pcp);
-        break;
-
     case OFPACT_STRIP_VLAN:
         ds_put_cstr(s, "strip_vlan");
-        break;
-
-    case OFPACT_SET_ETH_SRC:
-        ds_put_format(s, "mod_dl_src:"ETH_ADDR_FMT,
-                      ETH_ADDR_ARGS(ofpact_get_SET_ETH_SRC(a)->mac));
-        break;
-
-    case OFPACT_SET_ETH_DST:
-        ds_put_format(s, "mod_dl_dst:"ETH_ADDR_FMT,
-                      ETH_ADDR_ARGS(ofpact_get_SET_ETH_DST(a)->mac));
-        break;
-
-    case OFPACT_SET_IPV4_SRC:
-        ds_put_format(s, "mod_nw_src:"IP_FMT,
-                      IP_ARGS(&ofpact_get_SET_IPV4_SRC(a)->ipv4));
-        break;
-
-    case OFPACT_SET_IPV4_DST:
-        ds_put_format(s, "mod_nw_dst:"IP_FMT,
-                      IP_ARGS(&ofpact_get_SET_IPV4_DST(a)->ipv4));
-        break;
-
-    case OFPACT_SET_IPV4_DSCP:
-        ds_put_format(s, "mod_nw_tos:%d", ofpact_get_SET_IPV4_DSCP(a)->dscp);
         break;
 
     case OFPACT_SET_L4_SRC_PORT:

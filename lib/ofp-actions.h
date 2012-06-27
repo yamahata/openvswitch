@@ -60,14 +60,7 @@
     DEFINE_OFPACT(BUNDLE,          ofpact_bundle,        slaves)    \
                                                                     \
     /* Header changes. */                                           \
-    DEFINE_OFPACT(SET_VLAN_VID,    ofpact_vlan_vid,      ofpact)    \
-    DEFINE_OFPACT(SET_VLAN_PCP,    ofpact_vlan_pcp,      ofpact)    \
     DEFINE_OFPACT(STRIP_VLAN,      ofpact_null,          ofpact)    \
-    DEFINE_OFPACT(SET_ETH_SRC,     ofpact_mac,           ofpact)    \
-    DEFINE_OFPACT(SET_ETH_DST,     ofpact_mac,           ofpact)    \
-    DEFINE_OFPACT(SET_IPV4_SRC,    ofpact_ipv4,          ofpact)    \
-    DEFINE_OFPACT(SET_IPV4_DST,    ofpact_ipv4,          ofpact)    \
-    DEFINE_OFPACT(SET_IPV4_DSCP,   ofpact_dscp,          ofpact)    \
     DEFINE_OFPACT(SET_L4_SRC_PORT, ofpact_l4_port,       ofpact)    \
     DEFINE_OFPACT(SET_L4_DST_PORT, ofpact_l4_port,       ofpact)    \
     DEFINE_OFPACT(REG_MOVE,        ofpact_reg_move,      ofpact)    \
@@ -211,46 +204,6 @@ struct ofpact_bundle {
     uint16_t slaves[];
 };
 
-/* OFPACT_SET_VLAN_VID.
- *
- * Used for OFPAT10_SET_VLAN_VID. */
-struct ofpact_vlan_vid {
-    struct ofpact ofpact;
-    uint16_t vlan_vid;          /* VLAN VID in low 12 bits, 0 in other bits. */
-};
-
-/* OFPACT_SET_VLAN_PCP.
- *
- * Used for OFPAT10_SET_VLAN_PCP. */
-struct ofpact_vlan_pcp {
-    struct ofpact ofpact;
-    uint8_t vlan_pcp;           /* VLAN PCP in low 3 bits, 0 in other bits. */
-};
-
-/* OFPACT_SET_ETH_SRC, OFPACT_SET_ETH_DST.
- *
- * Used for OFPAT10_SET_DL_SRC, OFPAT10_SET_DL_DST. */
-struct ofpact_mac {
-    struct ofpact ofpact;
-    uint8_t mac[ETH_ADDR_LEN];
-};
-
-/* OFPACT_SET_IPV4_SRC, OFPACT_SET_IPV4_DST.
- *
- * Used for OFPAT10_SET_NW_SRC, OFPAT10_SET_NW_DST. */
-struct ofpact_ipv4 {
-    struct ofpact ofpact;
-    ovs_be32 ipv4;
-};
-
-/* OFPACT_SET_IPV4_DSCP.
- *
- * Used for OFPAT10_SET_NW_TOS. */
-struct ofpact_dscp {
-    struct ofpact ofpact;
-    uint8_t dscp;               /* DSCP in high 6 bits, rest ignored. */
-};
-
 /* OFPACT_SET_L4_SRC_PORT, OFPACT_SET_L4_DST_PORT.
  *
  * Used for OFPAT10_SET_TP_SRC, OFPAT10_SET_TP_DST. */
@@ -381,7 +334,10 @@ struct ofpact_note {
 
 /* OFPACT_SET_FIELD
  *
- * used for OFPAT12_SET_FIELD */
+ * used for OFPAT10_SET_VLAN_VID, OFPAT10_SET_VLAN_PCP,
+ *          OFPAT10_SET_DL_SRC, OFPAT10_SET_DL_DST,
+ *          OFPAT10_SET_NW_SRC, OFPAT10_SET_NW_DST, OFPAT10_SET_NW_TOS,
+ *          OFPAT12_SET_FIELD */
 struct ofpact_set_field {
     struct ofpact ofpact;
     const struct mf_field *mf;
