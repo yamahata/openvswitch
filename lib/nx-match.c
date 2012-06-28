@@ -29,6 +29,7 @@
 #include "ofpbuf.h"
 #include "openflow/nicira-ext.h"
 #include "packets.h"
+#include "set-field.h"
 #include "unaligned.h"
 #include "util.h"
 #include "vlog.h"
@@ -847,6 +848,10 @@ nxm_format_reg_move(const struct ofpact_reg_move *move, struct ds *s)
 void
 nxm_format_reg_load(const struct ofpact_reg_load *load, struct ds *s)
 {
+    if (load->ofpact.compat == OFPUTIL_OFPAT12_SET_FIELD) {
+        set_field_format(load, s);
+        return;
+    }
     ds_put_format(s, "load:%#"PRIx64"->", ntohll(load->value.be64));
     mf_format_subfield(&load->dst, s);
 }
@@ -905,6 +910,10 @@ nxm_reg_move_check(const struct ofpact_reg_move *move, const struct flow *flow)
 enum ofperr
 nxm_reg_load_check(const struct ofpact_reg_load *load, const struct flow *flow)
 {
+    if (load->ofpact.compat == OFPUTIL_OFPAT12_SET_FIELD) {
+        return set_field_check(load, flow);
+    }
+    assert(load->ofpact.compat == OFPUTIL_ACTION_INVALID);
     return mf_check_dst(&load->dst, flow);
 }
 
@@ -928,6 +937,12 @@ nxm_reg_load_to_openflow(const struct ofpact_reg_load *load,
 {
     struct nx_action_reg_load *narl;
 
+    if (load->ofpact.compat == OFPUTIL_OFPAT12_SET_FIELD) {
+        set_field_to_openflow(load, openflow);
+        return;
+    }
+
+    assert(load->ofpact.compat == OFPUTIL_ACTION_INVALID);
     narl = ofputil_put_NXAST_REG_LOAD(openflow);
     narl->ofs_nbits = nxm_encode_ofs_nbits(load->dst.ofs, load->dst.n_bits);
     narl->dst = htonl(load->dst.field->nxm_header);
@@ -954,6 +969,11 @@ nxm_execute_reg_move(const struct ofpact_reg_move *move,
 void
 nxm_execute_reg_load(const struct ofpact_reg_load *load, struct flow *flow)
 {
+    if (load->ofpact.compat == OFPUTIL_OFPAT12_SET_FIELD) {
+        mf_set_flow_value(load->dst.field, &load->value, flow);
+        return;
+    }
+    assert(load->ofpact.compat == OFPUTIL_ACTION_INVALID);
     nxm_reg_load(&load->dst, ntohll(load->value.be64), flow);
 }
 
