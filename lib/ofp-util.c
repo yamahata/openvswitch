@@ -1744,7 +1744,8 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
             return error;
         }
 
-        error = ofpacts_pull_openflow11_instructions(&b, b.size, ofpacts);
+        error = ofpacts_pull_openflow11_instructions(oh->version,
+                                                     &b, b.size, ofpacts);
         if (error) {
             return error;
         }
@@ -2239,7 +2240,8 @@ ofputil_decode_flow_stats_reply(struct ofputil_flow_stats *fs,
             return EINVAL;
         }
 
-        if (ofpacts_pull_openflow11_instructions(msg, msg->size, ofpacts)) {
+        if (ofpacts_pull_openflow11_instructions(oh->version,
+                                                 msg, msg->size, ofpacts)) {
             VLOG_WARN_RL(&bad_ofmsg_rl, "OFPST_FLOW reply bad instructions");
             return EINVAL;
         }
@@ -2905,7 +2907,7 @@ ofputil_decode_packet_out(struct ofputil_packet_out *po,
             return error;
         }
 
-        error = ofpacts_pull_openflow11_instructions(&b,
+        error = ofpacts_pull_openflow11_instructions(oh->version, &b,
                                                      ntohs(opo->actions_len),
                                                      ofpacts);
         if (error) {
