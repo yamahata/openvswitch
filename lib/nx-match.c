@@ -893,6 +893,44 @@ nxm_reg_load_from_openflow(const struct nx_action_reg_load *narl,
 
     return nxm_reg_load_check(load, NULL);
 }
+
+enum ofperr
+nxm_reg_load_from_openflow12_set_field(
+    const struct ofp12_action_set_field * oasf, struct ofpbuf *ofpacts)
+{
+    ovs_be32 *p = (ovs_be32*)oasf->field;
+    uint32_t oxm_header = ntohl(*p);
+    uint8_t oxm_length = NXM_LENGTH(oxm_header);
+    struct ofpact_reg_load *load;
+    const struct mf_field *mf;
+    int i;
+
+    /* ofp12_action_set_field is padded to 64 bits by zero */
+    if (oasf->len != ROUND_UP(sizeof(*oasf) + oxm_length, 8)) {
+        return OFPERR_OFPBAC_BAD_ARGUMENT;
+    }
+    for (i = sizeof(*oasf) + oxm_length; i < oasf->len; i++) {
+        if (((const char*)oasf)[i]) {
+            return OFPERR_OFPBAC_BAD_ARGUMENT;
+        }
+    }
+
+    if (NXM_HASMASK(oxm_header)) {
+        return OFPERR_OFPBAC_BAD_ARGUMENT;
+    }
+    mf = mf_from_nxm_header(oxm_header);
+    if (!mf || mf->oxm_header == 0) {
+        return OFPERR_OFPBAC_BAD_ARGUMENT;
+    }
+    load = ofpact_put_REG_LOAD(ofpacts);
+    load->ofpact.compat = OFPUTIL_OFPAT12_SET_FIELD;
+    load->dst.field = mf;
+    load->dst.ofs = 0;
+    load->dst.n_bits = mf->n_bits;
+    memcpy(&load->value, oasf + 1, mf->n_bytes);
+
+    return nxm_reg_load_check(load, NULL);
+}
 
 enum ofperr
 nxm_reg_move_check(const struct ofpact_reg_move *move, const struct flow *flow)
@@ -910,6 +948,55 @@ nxm_reg_move_check(const struct ofpact_reg_move *move, const struct flow *flow)
 enum ofperr
 nxm_reg_load_check(const struct ofpact_reg_load *load, const struct flow *flow)
 {
+    if (load->ofpact.compat == OFPUTIL_OFPAT12_SET_FIELD) {
+        const struct mf_field *mf = load->dst.field;
+        switch (mf->id) {
+        case MFF_ETH_SRC:
+        case MFF_ETH_DST:
+        case MFF_VLAN_VID:
+        case MFF_VLAN_PCP:
+        case MFF_IPV4_SRC:
+        case MFF_IPV4_DST:
+        case MFF_ETH_TYPE:
+        case MFF_VLAN_TCI:
+        case MFF_IP_PROTO:
+        case MFF_IP_ECN:
+        case MFF_IP_DSCP:
+        case MFF_TCP_SRC:
+        case MFF_TCP_DST:
+        case MFF_UDP_SRC:
+        case MFF_UDP_DST:
+        case MFF_ARP_OP:
+        case MFF_ARP_SPA:
+        case MFF_ARP_TPA:
+        case MFF_ARP_SHA:
+        case MFF_ARP_THA:
+        case MFF_IPV6_SRC:
+        case MFF_IPV6_DST:
+        case MFF_ICMPV4_TYPE:
+        case MFF_ICMPV4_CODE:
+        case MFF_ICMPV6_TYPE:
+        case MFF_ICMPV6_CODE:
+        case MFF_ND_TARGET:
+        case MFF_ND_SLL:
+        case MFF_ND_TLL:
+            break;
+
+        case MFF_TUN_ID:
+        case MFF_IN_PORT:
+        CASE_MFF_REGS:
+        case MFF_IP_TTL:
+        case MFF_IP_FRAG:
+        case MFF_IPV6_LABEL:
+        case MFF_N_IDS:
+        default:
+            return OFPERR_OFPBAC_BAD_ARGUMENT;
+        }
+        if (!mf_is_value_valid(mf, &load->value) ||
+            !mf_are_prereqs_ok(mf, flow)) {
+            return OFPERR_OFPBAC_BAD_ARGUMENT;
+        }
+    }
     return mf_check_dst(&load->dst, flow);
 }
 
@@ -932,6 +1019,18 @@ nxm_reg_load_to_openflow(const struct ofpact_reg_load *load,
                          struct ofpbuf *openflow)
 {
     struct nx_action_reg_load *narl;
+
+    if (load->ofpact.compat == OFPUTIL_OFPAT12_SET_FIELD) {
+        const struct mf_field *mf = load->dst.field;
+        struct ofp12_action_set_field *oasf;
+        ovs_be32* oxm_header;
+
+        oasf = ofputil_put_OFPAT12_SET_FIELD(openflow);
+        oxm_header = (ovs_be32*)oasf->field;
+        *oxm_header = mf->oxm_header;
+        memcpy(oasf + 1, &load->value, mf->n_bytes);
+        return;
+    }
 
     narl = ofputil_put_NXAST_REG_LOAD(openflow);
     narl->ofs_nbits = nxm_encode_ofs_nbits(load->dst.ofs, load->dst.n_bits);
@@ -959,6 +1058,10 @@ nxm_execute_reg_move(const struct ofpact_reg_move *move,
 void
 nxm_execute_reg_load(const struct ofpact_reg_load *load, struct flow *flow)
 {
+    if (load->ofpact.compat == OFPUTIL_OFPAT12_SET_FIELD) {
+        mf_set_flow_value(load->dst.field, &load->value, flow);
+        return;
+    }
     nxm_reg_load(&load->dst, ntohll(load->value.be64), flow);
 }
 
