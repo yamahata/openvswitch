@@ -497,7 +497,7 @@ do_show(int argc OVS_UNUSED, char *argv[])
     struct ofpbuf *reply;
     bool trunc;
 
-    make_openflow(sizeof(struct ofp_header), vconn_get_version(vconn),
+    make_openflow(sizeof(struct ofp_header), OFP12_VERSION,
                   OFPT_FEATURES_REQUEST, &request);
     open_vconn(vconn_name, &vconn);
 
