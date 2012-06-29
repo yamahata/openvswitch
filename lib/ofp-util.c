@@ -771,7 +771,7 @@ static const struct ofputil_msg_type ofputil_msg_types[] = {
     {                                                       \
         OFPUTIL_##TYPE,                                     \
         { OFP10_VERSION, RAW_TYPE, 0, 0, 0 },               \
-        "OFPT_" #TYPE,                                      \
+        #TYPE,                                              \
         MIN_SIZE,                                           \
         EXTRA_MULTIPLE                                      \
     }
@@ -812,7 +812,7 @@ static const struct ofputil_msg_type ofputil_msg_types[] = {
     {                                           \
         OFPUTIL_##TYPE,                         \
         { OFP11_VERSION, RAW_TYPE, 0, 0, 0 },   \
-        "OFPT_" #TYPE,                          \
+        #TYPE,                                  \
         MIN_SIZE,                               \
         EXTRA_MULTIPLE                          \
     }
@@ -832,7 +832,7 @@ static const struct ofputil_msg_type ofputil_msg_types[] = {
     {                                           \
         OFPUTIL_##TYPE,                         \
         { OFP12_VERSION, RAW_TYPE, 0, 0, 0 },   \
-        "OFPT_" #TYPE,                          \
+        #TYPE,                                  \
         MIN_SIZE,                               \
         EXTRA_MULTIPLE                          \
     }
@@ -874,7 +874,7 @@ static const struct ofputil_msg_type ofputil_msg_types[] = {
     {                                                           \
         OFPUTIL_##STAT##_REQUEST,                               \
         { OFP10_VERSION, OFPT10_STATS_REQUEST, RAW_STAT, 0, 0 },\
-        "OFPST_" #STAT " request",                              \
+        #STAT " request",                                       \
         sizeof(struct ofp10_stats_msg) + (MIN_SIZE),            \
         EXTRA_MULTIPLE                                          \
     }
@@ -895,7 +895,7 @@ static const struct ofputil_msg_type ofputil_msg_types[] = {
     {                                                           \
         OFPUTIL_##STAT##_REQUEST,                               \
         { OFP11_VERSION, OFPT11_STATS_REQUEST, RAW_STAT, 0, 0 },\
-        "OFPST_" #STAT " request",                              \
+        #STAT " request",                                       \
         sizeof(struct ofp11_stats_msg) + (MIN_SIZE),            \
         EXTRA_MULTIPLE                                          \
     }
@@ -912,7 +912,7 @@ static const struct ofputil_msg_type ofputil_msg_types[] = {
     {                                                           \
         OFPUTIL_##STAT##_REQUEST,                               \
         { OFP12_VERSION, OFPT11_STATS_REQUEST, RAW_STAT, 0, 0 },\
-        "OFPST_" #STAT " request",                              \
+        #STAT " request",                                       \
         sizeof(struct ofp11_stats_msg) + (MIN_SIZE),            \
         EXTRA_MULTIPLE                                          \
     }
@@ -933,7 +933,7 @@ static const struct ofputil_msg_type ofputil_msg_types[] = {
     {                                                       \
         OFPUTIL_##STAT##_REPLY,                             \
         { OFP10_VERSION, OFPT10_STATS_REPLY, RAW_STAT, 0, 0 },  \
-        "OFPST_" #STAT " reply",                           \
+        #STAT " reply",                                     \
         sizeof(struct ofp10_stats_msg) + (MIN_SIZE),        \
         EXTRA_MULTIPLE                                      \
     }
@@ -956,7 +956,7 @@ static const struct ofputil_msg_type ofputil_msg_types[] = {
     {                                                       \
         OFPUTIL_##STAT##_REPLY,                             \
         { OFP11_VERSION, OFPT11_STATS_REPLY, RAW_STAT, 0, 0 },  \
-        "OFPST_" #STAT " reply",                            \
+        #STAT " reply",                                     \
         sizeof(struct ofp11_stats_msg) + (MIN_SIZE),        \
         EXTRA_MULTIPLE                                      \
     }
@@ -978,7 +978,7 @@ static const struct ofputil_msg_type ofputil_msg_types[] = {
     {                                                       \
         OFPUTIL_##STAT##_REPLY,                             \
         { OFP12_VERSION, OFPT11_STATS_REPLY, RAW_STAT, 0, 0 },  \
-        "OFPST_" #STAT " reply",                            \
+        #STAT " reply",                                     \
         sizeof(struct ofp11_stats_msg) + (MIN_SIZE),        \
         EXTRA_MULTIPLE                                      \
     }
