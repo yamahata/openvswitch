@@ -21,6 +21,7 @@
 #include "meta-flow.h"
 #include "ofp-errors.h"
 #include "ofp-util.h"
+#include "ofpbuf.h"
 #include "openflow/openflow.h"
 #include "openflow/nicira-ext.h"
 #include "openvswitch/types.h"
@@ -99,7 +100,18 @@
                                                                     \
     /* Other. */                                                    \
     DEFINE_OFPACT(NOTE,            ofpact_note,          data)      \
-    DEFINE_OFPACT(EXIT,            ofpact_null,          ofpact)
+    DEFINE_OFPACT(EXIT,            ofpact_null,          ofpact)    \
+                                                                    \
+    /* Instruction */                                               \
+    DEFINE_OFPACT(APPLY_ACTIONS,   ofpact_inst_actions,  ofpacts)   \
+    DEFINE_OFPACT(CLEAR_ACTIONS,   ofpact_inst_actions,  ofpact)    \
+    DEFINE_OFPACT(WRITE_ACTIONS,   ofpact_inst_actions,  ofpacts)
+
+    /* TODO:XXX ofpact_inst_meter */
+    /*
+     * instruction write-metadata => reg_load with compat set
+     *             goto-table => resubmit with compat set
+     */
 
 /* enum ofpact_type, with a member OFPACT_<ENUM> for each action. */
 enum OVS_PACKED_ENUM ofpact_type {
@@ -443,6 +455,17 @@ struct ofpact_push_vlan {
     struct ofpact ofpact;
     ovs_be16 tpid;
 };
+
+/* OFPACT_APPLY_ACTIONS, OFPACT_CLEAR_ACTIONS, OFPACT_WRITE_ACTIONS
+ *
+ * user for OFPIT11_WRITE_ACTIONS, OFPIT11_APPLY_ACTIONS,
+ * OFPIT11_CLEAR_ACTIONS */
+struct ofpact_inst_actions {
+    struct ofpact ofpact;
+    uint8_t pad[4];     /* This is required by ofpact_pull() */
+    struct ofpact ofpacts[];
+};
+BUILD_ASSERT_DECL((sizeof(struct ofpact_inst_actions) % OFPACT_ALIGNTO) == 0);
 
 /* Converting OpenFlow to ofpacts. */
 enum ofperr ofpacts_pull_openflow10(struct ofpbuf *openflow,
