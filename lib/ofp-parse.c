@@ -479,6 +479,15 @@ parse_named_action(enum ofputil_action_code code, const struct flow *flow,
     case OFPUTIL_NXAST_PUSH_VLAN:
         ofpact_put_PUSH_VLAN(ofpacts)->tpid = htons(str_to_u32(arg));
         break;
+
+    case OFPUTIL_OFPIT11_GOTO_TABLE:
+    case OFPUTIL_OFPIT11_WRITE_METADATA:
+    case OFPUTIL_OFPIT11_WRITE_ACTIONS:
+    case OFPUTIL_OFPIT11_APPLY_ACTIONS:
+    case OFPUTIL_OFPIT11_CLEAR_ACTIONS:
+        /* TODO:XXX */
+        NOT_REACHED();
+        break;
     }
 }
 
