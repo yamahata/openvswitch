@@ -28,7 +28,7 @@ enum ofperr set_field_from_openflow(const struct ofp12_action_set_field * oasf,
                                     struct ofpbuf *ofpacts);
 void set_field_to_openflow(const struct ofpact_reg_load *load,
                            struct ofpbuf *openflow);
-void set_field_parse(struct ofpact_reg_load *load, const char *s);
+void set_field_parse(const char *arg, struct ofpbuf *ofpacts);
 void set_field_format(const struct ofpact_reg_load *load, struct ds *s);
 
 #endif /* SET_FIELD_H */

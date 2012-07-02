@@ -180,24 +180,26 @@ set_field_format(const struct ofpact_reg_load *load, struct ds *s)
 }
 
 void
-set_field_parse(struct ofpact_reg_load *load, const char *s)
+set_field_parse(const char *arg, struct ofpbuf *ofpacts)
 {
-    const char *value;
-    const char *delim = strstr(s, "->");
-    const char *key = delim + strlen(delim);
+    char *orig = xstrdup(arg);
+    struct ofpact_reg_load *load = ofpact_put_REG_LOAD(ofpacts);
+    char *value;
+    char *delim;
+    char *key;
     const struct mf_field *mf;
     const char *error;
 
-    value = s;
-    delim = strstr(s, "->");
+    value = orig;
+    delim = strstr(orig, "->");
     if (!delim) {
-        ovs_fatal(0, "%s: missing `->'", s);
+        ovs_fatal(0, "%s: missing `->'", orig);
     }
     if (strlen(delim) <= strlen("->")) {
-        ovs_fatal(0, "%s: missing field name following `->'", s);
+        ovs_fatal(0, "%s: missing field name following `->'", orig);
     }
-    key = delim + strlen("->");
 
+    key = delim + strlen("->");
     mf = mf_parse_oxm_name(key);
     if (!mf) {
         ovs_fatal(0, "%s is not valid oxm field name", key);
@@ -205,6 +207,8 @@ set_field_parse(struct ofpact_reg_load *load, const char *s)
     if (!set_field_mf_allowed(mf)) {
         ovs_fatal(0, "%s is not allowed to set", key);
     }
+
+    delim[0] = '\0';
     error = mf_parse_value(mf, value, &load->value);
     if (error) {
         ovs_fatal(0, "%s", error);
@@ -213,4 +217,5 @@ set_field_parse(struct ofpact_reg_load *load, const char *s)
         ovs_fatal(0, "%s is not valid valid for field %s", value, key);
     }
     set_field_init(load, mf);
+    free(orig);
 }
