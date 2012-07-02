@@ -5668,6 +5668,13 @@ do_xlate_actions(const struct ofpact *ofpacts, struct action_xlate_ctx *ctx)
                 ctx->flow.vlan_qinq_tci = ctx->flow.vlan_tci;
             }
             break;
+
+        case OFPACT_APPLY_ACTIONS:
+        case OFPACT_CLEAR_ACTIONS:
+        case OFPACT_WRITE_ACTIONS:
+            /* TODO:XXX */
+            NOT_REACHED();
+            break;
         }
     }
 
