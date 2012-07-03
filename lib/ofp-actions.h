@@ -569,5 +569,7 @@ OFPACTS
 #undef DEFINE_OFPACT
 
 void ofpact_update_len(struct ofpbuf *, struct ofpact *);
+void ofpact_nest(struct ofpbuf *ofpacts);
+void ofpact_unnest(struct ofpbuf *ofpacts);
 
 #endif /* ofp-actions.h */
