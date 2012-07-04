@@ -112,10 +112,20 @@ set_field_check(const struct ofpact_reg_load *load, const struct flow *flow)
     if (!set_field_mf_allowed(mf)) {
         return OFPERR_OFPBAC_BAD_ARGUMENT;
     }
-    if (!mf_is_value_valid(mf, &load->value) ||
-        (flow && !mf_are_prereqs_ok(mf, flow))) {
+    if (!mf_is_value_valid(mf, &load->value)) {
         return OFPERR_OFPBAC_BAD_ARGUMENT;
     }
+#if 0
+    /* TODO:XXX mf_are_prereqs_ok() needs enhancement.
+     * e.g. push_mpls, set_mpls (push followed by set)
+     * the check for set_mpls needs to see not only ethertype of the flow
+     * but also if preceding set_mpls exits
+     */
+    if (flow && !mf_are_prereqs_ok(mf, flow)) {
+        return OFPERR_OFPBAC_BAD_ARGUMENT;
+    }
+#endif
+
     return 0;
 }
 
