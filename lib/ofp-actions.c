@@ -34,7 +34,6 @@ VLOG_DEFINE_THIS_MODULE(ofp_actions);
 
 static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 5);
 
-static bool ofpact_is_instruction(const struct ofpact *a);
 
 /* Converting OpenFlow 1.0 to ofpacts. */
 
@@ -706,6 +705,18 @@ static enum ofperr
 decode_openflow12_action(const union ofp_action *a,
                          enum ofputil_action_code *code)
 {
+    /* set_field has variable length.
+     * This just checks if struct is available. The more check will be done
+     * by set_field_from_openflow()
+     */
+    if (a->type == CONSTANT_HTONS(OFPAT12_SET_FIELD)) {
+        if (ntohs(a->header.len) >= sizeof(struct ofp12_action_set_field)) {
+            *code = OFPUTIL_OFPAT12_SET_FIELD;
+            return 0;
+        }
+        return OFPERR_OFPBAC_BAD_LEN;
+    }
+
     switch (a->type) {
     case CONSTANT_HTONS(OFPAT12_EXPERIMENTER):
         return decode_nxast_action(a, code);
@@ -901,8 +912,7 @@ get_actions_from_instruction(const struct ofp11_instruction *inst,
 static enum ofperr
 ofpacts_pull_inst_actions(uint8_t ofp_version,
                           const struct ofp11_instruction *inst,
-                          struct ofpbuf *ofpacts,
-                          struct ofpact_inst_actions *inst_actions)
+                          struct ofpbuf *ofpacts)
 {
     const union ofp_action *actions;
     size_t n_actions;
@@ -910,11 +920,12 @@ ofpacts_pull_inst_actions(uint8_t ofp_version,
     struct ofpbuf *tmp = ofpbuf_new(1024 / 8); /* TODO:XXX 1024/8
                                                 * same to handle_flow_mod()
                                                 */
+    struct ofpact_inst_actions *inst_actions;
 
     get_actions_from_instruction(inst, &actions, &n_actions);
     if (ofp_version == OFP12_VERSION) {
         error = ofpacts_from_openflow12(actions, n_actions, tmp);
-    } else if (ofp_version == OFP11_VERSION){
+    } else if (ofp_version == OFP11_VERSION) {
         error = ofpacts_from_openflow11(actions, n_actions, tmp);
     } else {
         NOT_REACHED();
@@ -923,6 +934,14 @@ ofpacts_pull_inst_actions(uint8_t ofp_version,
         goto exit;
     }
 
+    ofpbuf_reserve(ofpacts, sizeof(*inst_actions) + tmp->size);
+    if (inst->type == CONSTANT_HTONS(OFPIT11_APPLY_ACTIONS)) {
+        inst_actions = ofpact_put_APPLY_ACTIONS(ofpacts);
+    } else if (inst->type == CONSTANT_HTONS(OFPIT11_WRITE_ACTIONS)){
+        inst_actions = ofpact_put_WRITE_ACTIONS(ofpacts);
+    } else {
+        NOT_REACHED();
+    }
     ofpbuf_put(ofpacts, tmp->data, tmp->size);
     ofpact_update_len(ofpacts, &inst_actions->ofpact);
 exit:
@@ -970,10 +989,8 @@ ofpacts_pull_openflow11_instructions(uint8_t ofp_version,
     /* TODO:XXX insts[OVSINST_OFPIT13_METER] */
     /* TODO:XXX insts[OVSINST_OFPIT11_APPLY_ACTIONS] */
     if (insts[OVSINST_OFPIT11_APPLY_ACTIONS]) {
-        error = ofpacts_pull_inst_actions(ofp_version,
-                                          insts[OVSINST_OFPIT11_APPLY_ACTIONS],
-                                          ofpacts,
-                                          ofpact_put_APPLY_ACTIONS(ofpacts));
+        error = ofpacts_pull_inst_actions(
+            ofp_version, insts[OVSINST_OFPIT11_APPLY_ACTIONS], ofpacts);
         if (error) {
             goto exit;
         }
@@ -982,10 +999,8 @@ ofpacts_pull_openflow11_instructions(uint8_t ofp_version,
         ofpact_put_CLEAR_ACTIONS(ofpacts);
     }
     if (insts[OVSINST_OFPIT11_WRITE_ACTIONS]) {
-        error = ofpacts_pull_inst_actions(ofp_version,
-                                          insts[OVSINST_OFPIT11_WRITE_ACTIONS],
-                                          ofpacts,
-                                          ofpact_put_WRITE_ACTIONS(ofpacts));
+        error = ofpacts_pull_inst_actions(
+            ofp_version, insts[OVSINST_OFPIT11_WRITE_ACTIONS], ofpacts);
         if (error) {
             goto exit;
         }
@@ -1788,20 +1803,23 @@ ofpacts_to_inst_actions(const struct ofpact ofpacts[],
 
     start_len = openflow->size;
     oia = ofpbuf_put_uninit(openflow, sizeof *oia);
+    oia->type = htons(type);
+    memset(oia->pad, 0, sizeof oia->pad);
+
     OFPACT_FOR_EACH (a, ofpacts) {
         assert(!ofpact_is_instruction(a));
         ofpact_to_openflow(a, openflow);
     }
-    oia->type = htons(type);
+
+    oia = ofpbuf_at_assert(openflow, start_len, sizeof *oia);
     oia->len = htons(openflow->size - start_len);
-    memset(oia->pad, 0, sizeof oia->pad);
 }
 
 /* Converts the ofpacts in 'ofpacts' (terminated by OFPACT_END) into OpenFlow
  * 1.1 actions in 'openflow', appending the actions to any existing data in
  * 'openflow'. */
 static void
-ofpacts_insts_to_openflow11__(const struct ofpact ofpacts[],
+ofpacts_insts_to_openflow11__(const struct ofpact *ofpacts,
                               struct ofpbuf *openflow,
                               void (*ofpact_to_openflow)(
                                   const struct ofpact *a, struct ofpbuf *out))
@@ -1897,7 +1915,8 @@ ofpacts_insts_to_openflow11__(const struct ofpact ofpacts[],
 }
 
 void
-ofpacts_insts_to_openflow11(uint8_t ofp_version, const struct ofpact ofpacts[],
+ofpacts_insts_to_openflow11(uint8_t ofp_version,
+                            const struct ofpact ofpacts[],
                             struct ofpbuf *openflow)
 {
     const struct ofpact *a;
@@ -2268,7 +2287,7 @@ ofpact_format(const struct ofpact *a, struct ds *s)
         break;
 
     case OFPACT_APPLY_ACTIONS:
-        ds_put_cstr(s, "apply_actions=(");
+        ds_put_cstr(s, "apply_actions(");
         inst_actions = ofpact_get_APPLY_ACTIONS(a);
         ofpacts_format__(inst_actions->ofpacts, s);
         ds_put_cstr(s, ")");
@@ -2287,7 +2306,7 @@ ofpact_format(const struct ofpact *a, struct ds *s)
     }
 }
 
-static bool
+bool
 ofpact_is_instruction(const struct ofpact *a)
 {
     return
@@ -2366,18 +2385,23 @@ ofpact_update_len(struct ofpbuf *ofpacts, struct ofpact *ofpact)
 }
 
 void
-ofpact_nest(struct ofpbuf *ofpacts)
+ofpact_nest(struct ofpbuf *ofpacts, const struct ofpact *ofpact)
 {
-    assert(ofpacts == ofpacts->l2);
+    assert(ofpact == ofpacts->l2);
     assert(ofpacts->l3 == NULL);
     ofpacts->l3 = ofpacts->l2;
 }
 
-void
+struct ofpact *
 ofpact_unnest(struct ofpbuf *ofpacts)
 {
-    assert(ofpacts->l2 == NULL);
-    assert(ofpacts->l3 == NULL);
+    struct ofpact *ofpact;
+    assert(ofpacts->l2 != NULL);
+    assert(ofpacts->l3 != NULL);
+    assert(ofpacts->l3 < ofpacts->l2);
+
+    ofpact = ofpacts->l3;
     ofpacts->l2 = ofpacts->l3;
     ofpacts->l3 = NULL;
+    return ofpact;
 }

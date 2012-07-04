@@ -462,8 +462,10 @@ struct ofpact_push_vlan {
  * OFPIT11_CLEAR_ACTIONS */
 struct ofpact_inst_actions {
     struct ofpact ofpact;
+    uint8_t pad[4];     /* This is required by ofpact_pull() */
     struct ofpact ofpacts[];
 };
+BUILD_ASSERT_DECL((sizeof(struct ofpact_inst_actions) % OFPACT_ALIGNTO) == 0);
 
 /* Converting OpenFlow to ofpacts. */
 enum ofperr ofpacts_pull_openflow10(struct ofpbuf *openflow,
@@ -486,6 +488,7 @@ void ofpacts_insts_to_openflow11(uint8_t ofp_version,
 bool ofpacts_output_to_port(const struct ofpact[], uint16_t port);
 bool ofpacts_equal(const struct ofpact a[], size_t a_len,
                    const struct ofpact b[], size_t b_len);
+bool ofpact_is_instruction(const struct ofpact *a);
 
 /* Formatting ofpacts.
  *
@@ -569,7 +572,7 @@ OFPACTS
 #undef DEFINE_OFPACT
 
 void ofpact_update_len(struct ofpbuf *, struct ofpact *);
-void ofpact_nest(struct ofpbuf *ofpacts);
-void ofpact_unnest(struct ofpbuf *ofpacts);
+void ofpact_nest(struct ofpbuf *ofpacts, const struct ofpact *ofpact);
+struct ofpact *ofpact_unnest(struct ofpbuf *ofpacts);
 
 #endif /* ofp-actions.h */
