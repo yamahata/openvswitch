@@ -503,13 +503,17 @@ parse_named_action(enum ofputil_action_code code, const struct flow *flow,
 
     case OFPUTIL_OFPIT11_WRITE_ACTIONS:
         inst_actions = ofpact_put_WRITE_ACTIONS(ofpacts);
+        ofpact_nest(ofpacts, &inst_actions->ofpact);
         str_to_ofpacts(flow, arg, ofpacts);
+        inst_actions = ofpact_get_WRITE_ACTIONS(ofpact_unnest(ofpacts));
         ofpact_update_len(ofpacts, &inst_actions->ofpact);
         break;
 
     case OFPUTIL_OFPIT11_APPLY_ACTIONS:
         inst_actions = ofpact_put_APPLY_ACTIONS(ofpacts);
+        ofpact_nest(ofpacts, &inst_actions->ofpact);
         str_to_ofpacts(flow, arg, ofpacts);
+        inst_actions = ofpact_get_APPLY_ACTIONS(ofpact_unnest(ofpacts));
         ofpact_update_len(ofpacts, &inst_actions->ofpact);
         break;
 
