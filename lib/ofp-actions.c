@@ -967,7 +967,7 @@ ofpacts_pull_inst_actions(uint8_t ofp_version,
         goto exit;
     }
 
-    ofpbuf_reserve(ofpacts, sizeof(*inst_actions) + tmp->size);
+    ofpbuf_prealloc_tailroom(ofpacts, sizeof(*inst_actions) + tmp->size);
     if (inst->type == CONSTANT_HTONS(OFPIT11_APPLY_ACTIONS)) {
         inst_actions = ofpact_put_APPLY_ACTIONS(ofpacts);
     } else if (inst->type == CONSTANT_HTONS(OFPIT11_WRITE_ACTIONS)){
