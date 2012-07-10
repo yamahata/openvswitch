@@ -2332,14 +2332,14 @@ commit_mpls_pop_action(struct flow *flow, struct flow *base,
 {
     assert(flow->dl_type == htons(ETH_TYPE_MPLS) ||
            flow->dl_type == htons(ETH_TYPE_MPLS_MCAST));
-    assert(eth_type != htons(ETH_TYPE_MPLS) &&
-           eth_type != htons(ETH_TYPE_MPLS_MCAST));
     nl_msg_put_be16(odp_actions, OVS_ACTION_ATTR_POP_MPLS, eth_type);
+
     /* Update dl_type and mpls_lse fields. */
-    if (flow->dl_type & htonl(MPLS_STACK_MASK)) {
+    if (flow->mpls_lse & htonl(MPLS_STACK_MASK)) {
+        assert(eth_type != htons(ETH_TYPE_MPLS) &&
+               eth_type != htons(ETH_TYPE_MPLS_MCAST));
         base->dl_type = flow->dl_type = eth_type;
     }
-    base->mpls_lse = flow->mpls_lse;
 }
 
 /* Handle MPLS Label Stack Entry action. Update packet flow. */
