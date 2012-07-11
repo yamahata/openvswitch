@@ -89,29 +89,27 @@ pull_icmpv6(struct ofpbuf *packet)
 }
 
 static void
-parse_remaining_mpls(struct ofpbuf *b, struct flow *flow)
-{
-    /* Proceed with parsing remaining MPLS headers. */
-    struct mpls_hdr *mh = ofpbuf_pull(b, sizeof *mh);
-    while (!(mh->mpls_lse & htonl(MPLS_STACK_MASK))) {
-        if (flow->inner_mpls_lse == htonl(0)) {
-            flow->inner_mpls_lse = mh->mpls_lse;
-        }
-        mh = ofpbuf_pull(b, sizeof *mh);
-    }
-    if (flow->inner_mpls_lse == htonl(0)) {
-        flow->inner_mpls_lse = mh->mpls_lse;
-    }
-}
-
-static void
 parse_mpls(struct ofpbuf *b, struct flow *flow)
 {
-    /* Make sure there is some data following MPLS header
-       before proceeding with parsing MPLS headers. */
-    if (b->size >= sizeof(struct mpls_hdr) + sizeof(ovs_be16)) {
-        struct mpls_hdr *mh = ofpbuf_pull(b, sizeof *mh);
-        flow->mpls_lse = mh->mpls_lse;
+    struct mpls_hdr *outer_mh = NULL;
+    struct mpls_hdr *mh;
+
+    do {
+        /* Make sure there is some data following MPLS header
+           before proceeding with parsing MPLS headers. */
+        if (b->size < sizeof(*mh) + sizeof(ovs_be16)) {
+            return;
+        }
+
+        mh = ofpbuf_pull(b, sizeof *mh);
+        if (outer_mh == NULL) {
+            outer_mh = mh;
+        }
+    } while (!(mh->mpls_lse & htonl(MPLS_STACK_MASK)));
+
+    flow->mpls_lse = outer_mh->mpls_lse;
+    if (flow->inner_mpls_lse == htonl(0) && outer_mh != mh) {
+        flow->inner_mpls_lse = mh->mpls_lse;
     }
 }
 
@@ -443,9 +441,7 @@ flow_extract(struct ofpbuf *packet, uint32_t skb_priority, ovs_be64 tun_id,
         struct ip6_hdr   *ih6 = b.data;
         packet->l2_5 = b.data;
         parse_mpls(&b, flow);
-        if (!(flow->mpls_lse & htonl(MPLS_STACK_MASK))) {
-            parse_remaining_mpls(&b, flow);
-        }
+
         if (ih) {
             if (IP_VER(ih->ip_ihl_ver) == IP_VERSION) {
                 flow->nw_ttl = ih->ip_ttl;
