@@ -64,24 +64,22 @@ set_field_check(const struct ofpact_reg_load *load,
 
 enum ofperr
 set_field_from_openflow(
-    const struct ofp12_action_set_field * oasf, struct ofpbuf *ofpacts)
+    const struct ofp12_action_set_field *oasf, struct ofpbuf *ofpacts)
 {
     uint16_t len = ntohs(oasf->len);
     ovs_be32 *p = (ovs_be32*)oasf->field;
     uint32_t oxm_header = ntohl(*p);
     uint8_t oxm_length = NXM_LENGTH(oxm_header);
+    uint16_t oasf_len = sizeof(*oasf) + oxm_length;
     struct ofpact_reg_load *load;
     const struct mf_field *mf;
-    int i;
 
     /* ofp12_action_set_field is padded to 64 bits by zero */
-    if (len != ROUND_UP(sizeof(*oasf) + oxm_length, 8)) {
+    if (len != ROUND_UP(oasf_len, 8)) {
         return OFPERR_OFPBAC_BAD_ARGUMENT;
     }
-    for (i = sizeof(*oasf) + oxm_length; i < len; i++) {
-        if (((const char*)oasf)[i]) {
-            return OFPERR_OFPBAC_BAD_ARGUMENT;
-        }
+    if (!is_all_zeros((const uint8_t*)oasf + oasf_len, len - oasf_len)) {
+        return OFPERR_OFPBAC_BAD_ARGUMENT;
     }
 
     if (NXM_HASMASK(oxm_header)) {
