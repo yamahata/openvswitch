@@ -550,6 +550,52 @@ pop_mpls(struct ofpbuf *packet, ovs_be16 ethtype)
     }
 }
 
+void
+overwrite_mpls_lses(struct ofpbuf *packet,
+                    const ovs_be32 *lses, unsigned int n_lses)
+{
+    size_t old_mpls_hlen;
+    size_t new_mpls_hlen = sizeof(lses[0]) * n_lses;
+    size_t l2_len;
+    char * header;
+    size_t inc;
+
+    if (packet->l2_5 != NULL) {
+        l2_len = (uint8_t*)packet->l2_5 - (uint8_t*)packet->l2;
+        old_mpls_hlen = (uint8_t*)packet->l3 - (uint8_t*)packet->l2_5;
+    } else {
+        l2_len = (uint8_t*)packet->l3 - (uint8_t*)packet->l2;
+        old_mpls_hlen = 0;
+    }
+
+    if (new_mpls_hlen <= old_mpls_hlen) {
+        size_t dec = old_mpls_hlen - new_mpls_hlen;
+
+        if (dec > 0) {
+            memmove((uint8_t*)packet->l2 + dec, packet->l2, l2_len);
+            ofpbuf_pull(packet, dec);
+            packet->l2 = (uint8_t*)packet->l2 + dec;
+        }
+        memmove((uint8_t*)packet->l2_5 + dec, lses, new_mpls_hlen);
+
+        if (new_mpls_hlen > 0) {
+            packet->l2_5 = (uint8_t*)packet->l2 + l2_len;
+        } else {
+            packet->l2_5 = NULL;
+        }
+        return;
+    }
+
+    inc = new_mpls_hlen - old_mpls_hlen;
+    header = ofpbuf_push_uninit(packet, inc);
+
+    memmove(header, packet->l2, l2_len);
+    memcpy((uint8_t*)header + l2_len, lses, new_mpls_hlen);
+
+    packet->l2 = (uint8_t*)packet->l2 - inc;
+    packet->l2_5 = (uint8_t*)packet->l2 + l2_len;
+}
+
 /* Converts hex digits in 'hex' to an Ethernet packet in '*packetp'.  The
  * caller must free '*packetp'.  On success, returns NULL.  On failure, returns
  * an error message and stores NULL in '*packetp'. */
