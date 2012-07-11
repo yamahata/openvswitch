@@ -2527,6 +2527,13 @@ mf_parse_oxm_name(const char *s)
         if (mf->oxm_name && !strncmp(mf->oxm_name, s, strlen(mf->oxm_name))) {
             return mf;
         }
+        if (!strncmp(mf->name, s, strlen(mf->name))) {
+            return mf;
+        }
+        if (mf->extra_name
+            && !strncmp(mf->extra_name, s, strlen(mf->extra_name))) {
+            return mf;
+        }
     }
     return NULL;
 }
