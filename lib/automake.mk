@@ -85,6 +85,7 @@ lib_libopenvswitch_a_SOURCES = \
 	lib/meta-flow.h \
 	lib/multipath.c \
 	lib/multipath.h \
+	lib/mpls.h \
 	lib/netdev-dummy.c \
 	lib/netdev-provider.h \
 	lib/netdev.c \
