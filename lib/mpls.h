@@ -34,8 +34,14 @@ mpls_lses_init(struct mpls_lses *mpls)
 static inline void
 mpls_lses_parsed(struct mpls_lses *mpls, const struct ofpbuf *packet)
 {
-    const struct mpls_hdr *outer = packet->l2_5;
-    const struct mpls_hdr *end = packet->l3;
+    const struct mpls_hdr *outer;
+    const struct mpls_hdr *end;
+    if (packet == NULL) {
+        return; /* TODO:XXX for xlate_actions_for_side_effects() */
+    }
+
+    outer = packet->l2_5;
+    end = packet->l3;
     if (outer == NULL || end == NULL) {
         mpls->n_lses = 0;
         return;
