@@ -155,6 +155,8 @@ void set_mpls_tc(struct ofpbuf *, uint8_t tc);
 void set_mpls_lse(struct ofpbuf *, ovs_be32 label);
 void push_mpls (struct ofpbuf *packet, ovs_be16 ethtype);
 void pop_mpls(struct ofpbuf *, ovs_be16 ethtype);
+void overwrite_mpls_lses(struct ofpbuf *packet,
+                         const ovs_be32 *lses, unsigned int n_lses);
 
 /* Example:
  *
