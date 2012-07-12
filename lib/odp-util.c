@@ -29,6 +29,7 @@
 #include "coverage.h"
 #include "dynamic-string.h"
 #include "flow.h"
+#include "mpls.h"
 #include "netlink.h"
 #include "ofpbuf.h"
 #include "packets.h"
@@ -1203,6 +1204,59 @@ parse_odp_key_attr(const char *s, const struct simap *port_names,
         }
     }
 
+    if (!strncmp(s, "mpls_lses(", strlen("mpls_lses("))) {
+        size_t offset = strlen("mpls_lses(");
+        const char *end = strchr(s + offset, ')');
+        size_t end_offset;
+        ovs_be32 mpls_lses[MPLS_LSE_MAX];
+        int n_labels;
+
+        if (end == NULL) {
+            return -EINVAL;
+        }
+
+        end_offset = end - s;
+        n_labels = 0;
+        while (offset < end_offset && n_labels < MPLS_LSE_MAX) {
+            int mpls_label, mpls_tc, mpls_ttl, mpls_stack;
+            int n = -1;
+            if (sscanf(s + offset, "label=%"SCNi32",tc=%i,ttl=%i,bos=%i%n",
+                       &mpls_label, &mpls_tc, &mpls_ttl, &mpls_stack,
+                       &n) > 0 && n > 0) {
+                mpls_lses[n_labels] = format_mpls_lse_values(mpls_label,
+                                                             mpls_tc,
+                                                             mpls_ttl,
+                                                             mpls_stack);
+                n_labels++;
+                offset += n;
+            } else {
+                return -EINVAL;
+            }
+            if (s[offset] == ')') {
+                offset++;
+                break;
+            }
+            if (s[offset] != ':') {
+                return -EINVAL;
+            }
+            offset++;
+        }
+        assert(n_labels > 0);
+        if (n_labels == MPLS_LSE_MAX && offset < end_offset) {
+            return -E2BIG;
+        }
+        if (offset != end_offset) {
+            return -EINVAL;
+        }
+        if ((mpls_lses[n_labels - 1] & ntohl(MPLS_STACK_MASK)) == 0) {
+            return -EINVAL;
+        }
+
+        nl_msg_put_unspec(key, OVS_KEY_ATTR_MPLS_LSES,
+                          mpls_lses, sizeof(mpls_lses[0]) * n_labels);
+        return offset;
+    }
+
     {
         ovs_be32 ipv4_src;
         ovs_be32 ipv4_dst;
@@ -1525,6 +1579,7 @@ odp_flow_key_from_flow(struct ofpbuf *buf, const struct flow *flow)
         if (flow->inner_mpls_lse != htonl(0)) {
             nl_msg_put_be32(buf, OVS_KEY_ATTR_INNER_MPLS, flow->inner_mpls_lse);
         }
+        /* TODO:XXX update flow for OVS_KEY_ATTR_MPLS_LSES */
     }
 
     if (flow->dl_type == htons(ETH_TYPE_IP)) {
@@ -1776,6 +1831,8 @@ parse_mpls_onward(const struct nlattr *attrs[OVS_KEY_ATTR_MAX + 1],
 {
     enum odp_key_fitness fitness;
     ovs_be32 mpls_lse;
+
+    /* TODO:XXX OVS_KEY_ATTR_MPLS_LSES */
 
     /* Calulate fitness of outer attributes. */
     expected_attrs |= (UINT64_C(1) << OVS_KEY_ATTR_MPLS);
