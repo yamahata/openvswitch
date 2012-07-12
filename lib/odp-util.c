@@ -116,6 +116,7 @@ ovs_key_attr_to_string(enum ovs_key_attr attr)
     case OVS_KEY_ATTR_TUN_ID: return "tun_id";
     case OVS_KEY_ATTR_MPLS: return "mpls";
     case OVS_KEY_ATTR_INNER_MPLS: return "inner_mpls";
+    case OVS_KEY_ATTR_MPLS_LSES: return "mpls_lses";
 
     case __OVS_KEY_ATTR_MAX:
     default:
@@ -742,6 +743,7 @@ odp_flow_key_attr_len(uint16_t type)
     case OVS_KEY_ATTR_ND: return sizeof(struct ovs_key_nd);
     case OVS_KEY_ATTR_MPLS: return sizeof(ovs_be32);
     case OVS_KEY_ATTR_INNER_MPLS: return sizeof(ovs_be32);
+    case OVS_KEY_ATTR_MPLS_LSES: return -2;
 
     case OVS_KEY_ATTR_UNSPEC:
     case __OVS_KEY_ATTR_MAX:
@@ -787,6 +789,8 @@ ovs_frag_type_to_string(enum ovs_frag_type type)
 static void
 format_odp_key_attr(const struct nlattr *a, struct ds *ds)
 {
+    int n_mpls;
+    const ovs_be32 *mpls_lse;
     const struct ovs_key_ethernet *eth_key;
     const struct ovs_key_ipv4 *ipv4_key;
     const struct ovs_key_ipv6 *ipv6_key;
@@ -859,6 +863,22 @@ format_odp_key_attr(const struct nlattr *a, struct ds *ds)
         ds_put_char(ds, '(');
         format_mpls_lse(ds, nl_attr_get_be32(a));
         ds_put_char(ds, ')');
+        break;
+
+    case OVS_KEY_ATTR_MPLS_LSES:
+        n_mpls = nl_attr_get_size(a) / sizeof(*mpls_lse);
+        if (n_mpls > 0) {
+            int i;
+            mpls_lse = nl_attr_get_unspec(a, n_mpls * sizeof(*mpls_lse));
+            ds_put_char(ds, '(');
+            for (i = 0; i < n_mpls; i++) {
+                if (i > 0) {
+                    ds_put_char(ds, ':'); /* XXX What delimiter? */
+                }
+                format_mpls_lse(ds, mpls_lse[i]);
+            }
+            ds_put_char(ds, ')');
+        }
         break;
 
     case OVS_KEY_ATTR_ETHERTYPE:
