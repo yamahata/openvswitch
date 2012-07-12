@@ -456,7 +456,14 @@ ofpacts_from_openflow(const union ofp_action *in, size_t n_in,
     size_t left;
 
     ACTION_FOR_EACH (a, left, in, n_in) {
-        enum ofperr error = ofpact_from_openflow(a, out);
+        enum ofperr error;
+        if (a->header.len % 8 != 0) {
+            VLOG_WARN_RL(&rl, "OpenFlow message actions length %u is not a "
+                         "multiple of 8", a->header.len);
+            return OFPERR_OFPBRC_BAD_LEN;
+        }
+
+        error = ofpact_from_openflow(a, out);
         if (error) {
             VLOG_WARN_RL(&rl, "bad action at offset %td (%s)",
                          (a - in) * sizeof *a, ofperr_get_name(error));
