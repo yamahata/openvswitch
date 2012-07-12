@@ -502,59 +502,29 @@ static int parse_vlan_qinq(struct sk_buff *skb, struct sw_flow_key *key)
 	return 0;
 }
 
-static int parse_remaining_mpls(struct sk_buff *skb, struct sw_flow_key *key)
-{
-	struct mtag_prefix {
-		__be32 mpls_lse;
-	};
-	struct mtag_prefix *mp;
-
-	if (unlikely(skb->len < sizeof(struct mtag_prefix) + sizeof(__be16)))
-		return 0;
-
-	if (unlikely(!pskb_may_pull(skb, MPLS_HLEN + sizeof(__be16))))
-		return -ENOMEM;
-
-	mp = (struct mtag_prefix *) skb->data;
-
-	while (!(mp->mpls_lse & htonl(MPLS_STACK_MASK))) {
-		if (key->mpls.inner_mpls_lse == htonl(0)) {
-			key->mpls.inner_mpls_lse = mp->mpls_lse;
-		}
-
-		__skb_pull(skb, sizeof(struct mtag_prefix));
-
-		if (unlikely(!pskb_may_pull(skb, MPLS_HLEN + sizeof(__be16))))
-			return -ENOMEM;
-
-		mp = (struct mtag_prefix *) skb->data;
-	}
-	if (key->mpls.inner_mpls_lse == htonl(0)) {
-		key->mpls.inner_mpls_lse = mp->mpls_lse;
-	}
-	__skb_pull(skb, sizeof(struct mtag_prefix));
-
-	return 0;
-}
-
 static int parse_mpls(struct sk_buff *skb, struct sw_flow_key *key)
 {
-	struct mtag_prefix {
-		__be32 mpls_lse;
-	};
-	struct mtag_prefix *mp;
+	__be32 *outer_mp = NULL;
+	__be32 *mp;
+	int n_labels;
 
-	if (unlikely(skb->len < sizeof(struct mtag_prefix) + sizeof(__be16)))
-		return 0;
+	do {
+		if (unlikely(!pskb_may_pull(skb,
+					    sizeof(*mp) + sizeof(__be16))))
+			return -ENOMEM;
 
-	if (unlikely(!pskb_may_pull(skb, sizeof(struct mtag_prefix) +
-									sizeof(__be16))))
-		return -ENOMEM;
+		mp = (__be32*) skb->data;
+		if (outer_mp == NULL)
+			outer_mp = mp;
+		__skb_pull(skb, sizeof(*mp));
+	} while (!(*mp & htonl(MPLS_STACK_MASK)));
 
-	mp = (struct mtag_prefix *) skb->data;
-	key->mpls.mpls_lse = mp->mpls_lse;
-	__skb_pull(skb, sizeof(struct mtag_prefix));
-
+	n_labels = mp - outer_mp + 1;
+	if (n_labels > MPLS_LSE_MAX)
+		return -E2BIG;
+	memcpy(key->mpls_lses.lses, outer_mp, sizeof(*mp) * n_labels);
+	memset(&key->mpls_lses.lses[n_labels], 0,
+	       sizeof(*mp) * (MPLS_LSE_MAX - n_labels));
 	return 0;
 }
 
@@ -761,13 +731,15 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
 
 	if (key->eth.type == htons(ETH_P_MPLS_UC) ||
 	    key->eth.type == htons(ETH_P_MPLS_MC)) {
-		if (unlikely(parse_mpls(skb, key)))
-			return -ENOMEM;
-		key_len = SW_FLOW_KEY_OFFSET(mpls.mpls_lse);
-		if (!(key->mpls.mpls_lse & htonl(MPLS_STACK_MASK))) {
-			if (unlikely(parse_remaining_mpls(skb, key)))
-				return -ENOMEM;
-			key_len = SW_FLOW_KEY_OFFSET(mpls.inner_mpls_lse);
+		error = parse_mpls(skb, key);
+		if (unlikely(error)) {
+			if (error != -E2BIG)
+				return error;
+
+			/* too may labels. let user space handle this */
+			error = 0;
+		} else {
+			key_len = SW_FLOW_KEY_OFFSET(mpls_lses.lses);
 		}
 	}
 
@@ -965,6 +937,7 @@ const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
 	[OVS_KEY_ATTR_ND] = sizeof(struct ovs_key_nd),
 	[OVS_KEY_ATTR_MPLS] = sizeof(__be32),
 	[OVS_KEY_ATTR_INNER_MPLS] = sizeof(__be32),
+	[OVS_KEY_ATTR_MPLS_LSES] = -1,
 
 	/* Not upstream. */
 	[OVS_KEY_ATTR_TUN_ID] = sizeof(__be64),
@@ -1216,27 +1189,33 @@ int ovs_flow_from_nlattrs(struct sw_flow_key *swkey, int *key_lenp,
 		swkey->eth.type = htons(ETH_P_802_2);
 	}
 
-	if (swkey->eth.type == htons(ETH_P_MPLS_UC) ||
-	    swkey->eth.type == htons(ETH_P_MPLS_MC)) {
-		__be32 mpls_lse;
+	if ((swkey->eth.type == htons(ETH_P_MPLS_UC) ||
+	     swkey->eth.type == htons(ETH_P_MPLS_MC)) &&
+	    (attrs & (1 << OVS_KEY_ATTR_MPLS_LSES)) != 0) {
+		__be32 *mpls_lse;
+		int n_labels;
 
-		if (!(attrs & (1 << OVS_KEY_ATTR_MPLS))) {
+		if (nla_len(a[OVS_KEY_ATTR_MPLS_LSES]) == 0 ||
+		    nla_len(a[OVS_KEY_ATTR_MPLS_LSES]) >
+		    sizeof(mpls_lse) * MPLS_STACK_MASK ||
+		    nla_len(a[OVS_KEY_ATTR_MPLS_LSES]) % sizeof(*mpls_lse)
+		    != 0)
 			return -EINVAL;
-		}
-		/* Update mpls lse key. */
-		mpls_lse = nla_get_be32(a[OVS_KEY_ATTR_MPLS]);
-		swkey->mpls.mpls_lse = mpls_lse;
+
+		n_labels = nla_len(a[OVS_KEY_ATTR_MPLS_LSES]) /
+			sizeof(*mpls_lse);
+		mpls_lse = nla_data(a[OVS_KEY_ATTR_MPLS_LSES]);
+		if ((mpls_lse[n_labels - 1] & htonl(MPLS_STACK_MASK)) == 0)
+			return -EINVAL;
+		memcpy(swkey->mpls_lses.lses, mpls_lse,
+		       nla_len(a[OVS_KEY_ATTR_MPLS_LSES]));
+		memset(&swkey->mpls_lses.lses[n_labels], 0,
+		       sizeof(*mpls_lse) * (MPLS_LSE_MAX - n_labels));
+
 		attrs &= ~(1 << OVS_KEY_ATTR_MPLS);
-		key_len = SW_FLOW_KEY_OFFSET(mpls.mpls_lse);
-
-		/* Update inner mpls lse key. */
-		if (attrs & (1 << OVS_KEY_ATTR_INNER_MPLS)) {
-			mpls_lse = nla_get_be32(a[OVS_KEY_ATTR_INNER_MPLS]);
-			swkey->mpls.inner_mpls_lse = mpls_lse;
-			attrs &= ~(1 << OVS_KEY_ATTR_INNER_MPLS);
-			key_len = SW_FLOW_KEY_OFFSET(mpls.inner_mpls_lse);
-		}
-
+		attrs &= ~(1 << OVS_KEY_ATTR_INNER_MPLS);
+		attrs &= ~(1 << OVS_KEY_ATTR_MPLS_LSES);
+		key_len = SW_FLOW_KEY_OFFSET(mpls_lses.lses);
 	}
 
 	if (swkey->eth.type == htons(ETH_P_IP)) {
@@ -1419,13 +1398,16 @@ int ovs_flow_to_nlattrs(const struct sw_flow_key *swkey, struct sk_buff *skb)
 	/* Send mpls and inner mpls lse nl attributes. */
 	if (swkey->eth.type == htons(ETH_P_MPLS_UC) ||
 		swkey->eth.type == htons(ETH_P_MPLS_MC)) {
-		if (nla_put_be32(skb, OVS_KEY_ATTR_MPLS, swkey->mpls.mpls_lse)) {
-			goto nla_put_failure;
+		int i = 0;
+		while ((swkey->mpls_lses.lses[i] &
+			htonl(MPLS_STACK_MASK)) == 0 && i < MPLS_LSE_MAX) {
+			i++;
 		}
-		if (swkey->mpls.inner_mpls_lse != htonl(0)) {
-			if (nla_put_be32(skb, OVS_KEY_ATTR_INNER_MPLS,
-							 swkey->mpls.inner_mpls_lse))
-			goto nla_put_failure;
+		if (i < MPLS_LSE_MAX) {
+			if (nla_put(skb, OVS_KEY_ATTR_MPLS_LSES,
+				    (i + 1) * sizeof(swkey->mpls_lses.lses[0]),
+				    swkey->mpls_lses.lses))
+				goto nla_put_failure;
 		}
 	}
 

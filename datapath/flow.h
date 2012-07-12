@@ -40,6 +40,8 @@ struct sw_flow_actions {
 	struct nlattr actions[];
 };
 
+#define MPLS_LSE_MAX	16
+
 struct sw_flow_key {
 	struct {
 		__be64	tun_id;		/* Encapsulating tunnel ID. */
@@ -57,9 +59,9 @@ struct sw_flow_key {
 		__be16 qinq_tci;	/* 0 if no VLAN, VLAN_TAG_PRESENT set otherwise. */
 	} vlan;
 	struct {
-		__be32 mpls_lse;	/* 0 if no MPLS, otherwise MPLS label Stack entry. */
-		__be32 inner_mpls_lse;	/* 0 if no inner MPLS, otherwise MPLS label Stack entry. */
-	} mpls;
+		__be32 lses[MPLS_LSE_MAX];
+					/* 0 if no further MPLS. otherwise MPLS label stack entry */
+	} mpls_lses;
 	struct {
 		u8     proto;		/* IP protocol or lower 8 bits of ARP opcode. */
 		u8     tos;		/* IP ToS. */
