@@ -281,6 +281,8 @@ enum ovs_key_attr {
 	OVS_KEY_ATTR_ND,        /* struct ovs_key_nd */
 	OVS_KEY_ATTR_MPLS,      /* be32 MPLS Label Stack Entry */
 	OVS_KEY_ATTR_INNER_MPLS,/* be32 Inner MPLS Label Stack Entry */
+	OVS_KEY_ATTR_MPLS_LSES, /* be32 MPLS Label Stack Entry Array
+				   terminated by BOS bit */
 	OVS_KEY_ATTR_TUN_ID = 63, /* be64 tunnel ID */
 	__OVS_KEY_ATTR_MAX
 };
