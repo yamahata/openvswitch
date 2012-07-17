@@ -4904,7 +4904,6 @@ compose_output_action__(struct action_xlate_ctx *ctx, uint16_t ofp_port,
     uint16_t odp_port = ofp_port_to_odp_port(ofp_port);
     ovs_be16 flow_vlan_tci = ctx->flow.vlan_tci;
     ovs_be16 flow_vlan_qinq_tci = ctx->flow.vlan_qinq_tci;
-    ovs_be32 flow_mpls_lse = ctx->flow.mpls_lse;
     struct mpls_lses flow_mpls_lses = ctx->flow.mpls_lses;
     uint8_t flow_nw_tos = ctx->flow.nw_tos;
     uint16_t out_port;
@@ -4941,7 +4940,6 @@ compose_output_action__(struct action_xlate_ctx *ctx, uint16_t ofp_port,
     ctx->nf_output_iface = ofp_port;
     ctx->flow.vlan_tci = flow_vlan_tci;
     ctx->flow.vlan_qinq_tci = flow_vlan_qinq_tci;
-    ctx->flow.mpls_lse = flow_mpls_lse;
     ctx->flow.mpls_lses = flow_mpls_lses;
     ctx->flow.nw_tos = flow_nw_tos;
 }
@@ -5156,20 +5154,17 @@ compose_dec_ttl(struct action_xlate_ctx *ctx)
 static void
 commit_dec_mpls_ttl_action(struct action_xlate_ctx *ctx)
 {
-    uint8_t ttl = mpls_lse_to_ttl(ctx->flow.mpls_lse);
+    uint8_t ttl = mpls_lse_to_ttl(ctx->flow.mpls_lses.lses[0]);
     assert(ctx->flow.mpls_lses.n_lses > 0);
 
     if (ttl > 1) {
         ttl--;
-        if (ctx->flow.mpls_lse != htonl(0)) {
-            flow_set_mpls_lse_ttl(&ctx->flow.mpls_lse, ttl);
+        if (ctx->flow.mpls_lses.lses[0] != htonl(0)) {
             flow_set_mpls_lse_ttl(&ctx->flow.mpls_lses.lses[0], ttl);
         }
-        if (ctx->base_flow.mpls_lse != htonl(0)) {
-            flow_set_mpls_lse_ttl(&ctx->base_flow.mpls_lse, ttl);
+        if (ctx->base_flow.mpls_lses.lses[0] != htonl(0)) {
             flow_set_mpls_lse_ttl(&ctx->base_flow.mpls_lses.lses[0], ttl);
         }
-        mpls_lses_set(&ctx->flow.mpls_lses, ctx->flow.mpls_lse);
         nl_msg_put_u8(ctx->odp_actions, OVS_ACTION_ATTR_DEC_MPLS_TTL, ttl);
     } else {
         execute_controller_action(ctx, UINT16_MAX, OFPR_INVALID_TTL, 0);
@@ -5181,20 +5176,15 @@ commit_copy_mpls_ttl_in_action(struct action_xlate_ctx *ctx)
 {
     /* Get MPLS top label ttl to be copied. */
     uint8_t ttl = 64;
-    if (ctx->flow.mpls_lse != htonl(0)) {
-        ttl = mpls_lse_to_ttl(ctx->flow.mpls_lse);;
-    } else if (ctx->base_flow.mpls_lse != htonl(0)) {
-        ttl = mpls_lse_to_ttl(ctx->base_flow.mpls_lse);;
+    if (ctx->flow.mpls_lses.lses[0] != htonl(0)) {
+        ttl = mpls_lse_to_ttl(ctx->flow.mpls_lses.lses[0]);;
+    } else if (ctx->base_flow.mpls_lses.lses[0] != htonl(0)) {
+        ttl = mpls_lse_to_ttl(ctx->base_flow.mpls_lses.lses[0]);;
     }
 
     /* Update ttl into flow inner mpls lse or l3 fields. */
     if (ctx->flow.mpls_lses.n_lses >= 2) {
         flow_set_mpls_lse_ttl(&ctx->flow.mpls_lses.lses[1], ttl);
-        flow_set_mpls_lse_ttl(&ctx->base_flow.mpls_lses.lses[1], ttl);
-        assert(ctx->flow.inner_mpls_lse != htonl(0));
-        if (ctx->flow.mpls_lses.n_lses == 2) {
-            flow_set_mpls_lse_ttl(&ctx->flow.inner_mpls_lse, ttl);
-        }
     } else {
         ctx->flow.nw_ttl = ttl;
     }
@@ -5202,9 +5192,8 @@ commit_copy_mpls_ttl_in_action(struct action_xlate_ctx *ctx)
 
     nl_msg_put_u8(ctx->odp_actions, OVS_ACTION_ATTR_COPY_TTL_IN, ttl);
 
-    if (ctx->flow.mpls_lses.n_lses == 2) {
-        assert(ctx->base_flow.inner_mpls_lse != htonl(0));
-        flow_set_mpls_lse_ttl(&ctx->base_flow.inner_mpls_lse, ttl);
+    if (ctx->flow.mpls_lses.n_lses >= 2) {
+        flow_set_mpls_lse_ttl(&ctx->base_flow.mpls_lses.lses[1], ttl);
     } else {
         ctx->base_flow.nw_ttl = ttl;
     }
@@ -5227,17 +5216,15 @@ commit_copy_mpls_ttl_out_action(struct action_xlate_ctx *ctx)
 
     /* Update ttl into flow mpls lse. */
     if (ctx->flow.mpls_lses.n_lses > 0) {
-        flow_set_mpls_lse_ttl(&ctx->flow.mpls_lse, ttl);
         flow_set_mpls_lse_ttl(&ctx->flow.mpls_lses.lses[0], ttl);
-        flow_set_mpls_lse_ttl(&ctx->base_flow.mpls_lses.lses[0], ttl);
     }
     /* TODO:XXX IP-to-IP case */
 
     nl_msg_put_u8(ctx->odp_actions, OVS_ACTION_ATTR_COPY_TTL_OUT, ttl);
 
     if (ctx->flow.mpls_lses.n_lses > 0) {
-        assert(ctx->base_flow.mpls_lse != htonl(0));
-        flow_set_mpls_lse_ttl(&ctx->base_flow.mpls_lse, ttl);
+        assert(ctx->base_flow.mpls_lses.n_lses == ctx->flow.mpls_lses.n_lses);
+        flow_set_mpls_lse_ttl(&ctx->base_flow.mpls_lses.lses[0], ttl);
     }
 }
 
@@ -5650,7 +5637,6 @@ do_xlate_action(const struct ofpact *a, struct action_xlate_ctx *ctx)
         if (load->dst.field->id == MFF_MPLS_LABEL ||
             load->dst.field->id == MFF_MPLS_TC ||
             load->dst.field->id == MFF_MPLS_STACK) {
-            mpls_lses_set(&ctx->flow.mpls_lses, ctx->flow.mpls_lse);
             commit_mpls_lse_action(&ctx->flow, &ctx->base_flow,
                                    ctx->odp_actions);
         }
@@ -5712,37 +5698,12 @@ do_xlate_action(const struct ofpact *a, struct action_xlate_ctx *ctx)
         commit_mpls_push_action(&ctx->flow, &ctx->base_flow,
                                 ctx->odp_actions,
                                 ofpact_get_PUSH_MPLS(a)->ethertype);
-        mpls_lses_push(&ctx->flow.mpls_lses, ctx->flow.mpls_lse);
-        if (ctx->flow.mpls_lses.n_lses == 1) {
-            assert(ctx->flow.inner_mpls_lse == htonl(0));
-        } else if (ctx->flow.mpls_lses.n_lses == 2){
-            assert(ctx->flow.inner_mpls_lse == htonl(0));
-            ctx->flow.inner_mpls_lse = ctx->flow.mpls_lses.lses[1];
-        } else {
-            assert(ctx->flow.inner_mpls_lse != htonl(0));
-        }
-        ctx->base_flow.inner_mpls_lse = ctx->flow.inner_mpls_lse;
         break;
 
     case OFPACT_POP_MPLS:
         commit_mpls_pop_action(&ctx->flow, &ctx->base_flow,
                                ctx->odp_actions,
                                ofpact_get_POP_MPLS(a)->ethertype);
-        mpls_lses_pop(&ctx->flow.mpls_lses);
-        if (ctx->flow.mpls_lses.n_lses == 0) {
-            ctx->flow.mpls_lse = htonl(0);
-            assert(ctx->flow.inner_mpls_lse == htonl(0));
-        } else if (ctx->flow.mpls_lses.n_lses == 1) {
-            ctx->flow.mpls_lse = ctx->flow.mpls_lses.lses[0];
-            assert(ctx->flow.inner_mpls_lse != htonl(0));
-            ctx->flow.inner_mpls_lse = htonl(0);
-        } else {
-            ctx->flow.mpls_lse = ctx->flow.mpls_lses.lses[0];
-            assert(ctx->flow.inner_mpls_lse != htonl(0));
-        }
-        ctx->base_flow.mpls_lse = ctx->flow.mpls_lse;
-        ctx->base_flow.inner_mpls_lse = ctx->flow.inner_mpls_lse;
-        ctx->base_flow.mpls_lses = ctx->flow.mpls_lses;
         break;
 
     case OFPACT_SET_MPLS_LABEL:
@@ -5751,9 +5712,7 @@ do_xlate_action(const struct ofpact *a, struct action_xlate_ctx *ctx)
         }
         mpls_label = ofpact_get_SET_MPLS_LABEL(a)->mpls_label;
         mpls_label = htonl(ntohl(mpls_label) << MPLS_LABEL_SHIFT);
-        ctx->flow.mpls_lse &= ~htonl(MPLS_LABEL_MASK);
-        ctx->flow.mpls_lse |= mpls_label;
-        mpls_lses_set(&ctx->flow.mpls_lses, ctx->flow.mpls_lse);
+        mpls_lses_set_label(&ctx->flow.mpls_lses, mpls_label);
         commit_mpls_lse_action(&ctx->flow, &ctx->base_flow, ctx->odp_actions);
         break;
 
@@ -5762,9 +5721,8 @@ do_xlate_action(const struct ofpact *a, struct action_xlate_ctx *ctx)
             break;
         }
         mpls_tc = ofpact_get_SET_MPLS_TC(a)->mpls_tc;
-        ctx->flow.mpls_lse &= ~htonl(MPLS_TC_MASK);
-        ctx->flow.mpls_lse |= htonl(mpls_tc << MPLS_TC_SHIFT);
-        mpls_lses_set(&ctx->flow.mpls_lses, ctx->flow.mpls_lse);
+        mpls_tc = htonl(ntohl(mpls_tc) << MPLS_TC_SHIFT);
+        mpls_lses_set_tc(&ctx->flow.mpls_lses, mpls_tc);
         commit_mpls_lse_action(&ctx->flow, &ctx->base_flow, ctx->odp_actions);
         break;
 
@@ -5773,9 +5731,8 @@ do_xlate_action(const struct ofpact *a, struct action_xlate_ctx *ctx)
             break;
         }
         mpls_ttl = ofpact_get_SET_MPLS_TTL(a)->mpls_ttl;
-        ctx->flow.mpls_lse &= ~htonl(MPLS_TTL_MASK);
-        ctx->flow.mpls_lse |= htonl(mpls_ttl << MPLS_TTL_SHIFT);
-        mpls_lses_set(&ctx->flow.mpls_lses, ctx->flow.mpls_lse);
+        mpls_ttl = htonl(ntohl(mpls_ttl) << MPLS_TTL_SHIFT);
+        mpls_lses_set_tc(&ctx->flow.mpls_lses, mpls_ttl);
         commit_mpls_lse_action(&ctx->flow, &ctx->base_flow, ctx->odp_actions);
         break;
 

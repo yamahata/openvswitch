@@ -1073,15 +1073,15 @@ mf_get_value(const struct mf_field *mf, const struct flow *flow,
         break;
 
     case MFF_MPLS_LABEL:
-        value->be32 = htonl(mpls_lse_to_label(flow->mpls_lse));
+        value->be32 = htonl(mpls_lse_to_label(flow->mpls_lses.lses[0]));
         break;
 
     case MFF_MPLS_TC:
-        value->u8 = mpls_lse_to_tc(flow->mpls_lse);
+        value->u8 = mpls_lse_to_tc(flow->mpls_lses.lses[0]);
         break;
 
     case MFF_MPLS_STACK:
-        value->u8 = mpls_lse_to_stack(flow->mpls_lse);
+        value->u8 = mpls_lse_to_stack(flow->mpls_lses.lses[0]);
         break;
 
     case MFF_IPV4_SRC:
@@ -1633,17 +1633,17 @@ mf_set_wild(const struct mf_field *mf, struct cls_rule *rule)
 
     case MFF_MPLS_LABEL:
         rule->wc.wildcards |= FWW_MPLS_LABEL;
-        rule->flow.mpls_lse &= ~htonl(MPLS_LABEL_MASK);
+        rule->flow.mpls_lses.lses[0] &= ~htonl(MPLS_LABEL_MASK);
         break;
 
     case MFF_MPLS_TC:
         rule->wc.wildcards |= FWW_MPLS_TC;
-        rule->flow.mpls_lse &= ~htonl(MPLS_TC_MASK);
+        rule->flow.mpls_lses.lses[0] &= ~htonl(MPLS_TC_MASK);
         break;
 
     case MFF_MPLS_STACK:
         rule->wc.wildcards |= FWW_MPLS_STACK;
-        rule->flow.mpls_lse &= ~htonl(MPLS_STACK_MASK);
+        rule->flow.mpls_lses.lses[0] &= ~htonl(MPLS_STACK_MASK);
         break;
 
     case MFF_IP_FRAG:

@@ -109,11 +109,6 @@ parse_mpls(struct ofpbuf *b, struct flow *flow)
         }
     } while (!(mh->mpls_lse & htonl(MPLS_STACK_MASK)));
 
-    flow->mpls_lse = outer_mh->mpls_lse;
-    if (flow->inner_mpls_lse == htonl(0) && outer_mh != mh) {
-        flow->inner_mpls_lse = mh->mpls_lse;
-    }
-
     b->l3 = b->data;
     mpls_lses_parsed(&flow->mpls_lses, b);
 }
@@ -573,19 +568,14 @@ flow_zero_wildcards(struct flow *flow, const struct flow_wildcards *wildcards)
     memset(flow->mpls_lses.lses + 1, 0,
            sizeof(flow->mpls_lses.lses[0]) * MPLS_LSE_MAX - 1);
     flow->mpls_lses.n_lses = 0;
-    flow->inner_mpls_lse = 0;
-    flow->mpls_lse &= ~htonl(MPLS_TTL_MASK);
     flow->mpls_lses.lses[0] &= ~htonl(MPLS_TTL_MASK);
     if (wc & FWW_MPLS_LABEL) {
-        flow->mpls_lse &= ~htonl(MPLS_LABEL_MASK);
         flow->mpls_lses.lses[0] &= ~htonl(MPLS_LABEL_MASK);
     }
     if (wc & FWW_MPLS_TC) {
-        flow->mpls_lse &= ~htonl(MPLS_TC_MASK);
         flow->mpls_lses.lses[0] &= ~htonl(MPLS_TC_MASK);
     }
     if (wc & FWW_MPLS_STACK) {
-        flow->mpls_lse &= ~htonl(MPLS_STACK_MASK);
         flow->mpls_lses.lses[0] &= ~htonl(MPLS_STACK_MASK);
     }
     if (wc & FWW_VLAN_TPID) {
@@ -666,12 +656,13 @@ flow_format(struct ds *ds, const struct flow *flow)
                   ntohs(flow->dl_type));
 
     ds_put_format(ds, ",mpls(");
-    if (flow->mpls_lse) {
+    if (flow->mpls_lses.n_lses > 0) {
+        ovs_be32 mpls_lse = flow->mpls_lses.lses[0];
         ds_put_format(ds, "label:%"PRIu32",tc:%d,ttl:%d,bos:%d",
-                      mpls_lse_to_label(flow->mpls_lse),
-                      mpls_lse_to_tc(flow->mpls_lse),
-                      mpls_lse_to_ttl(flow->mpls_lse),
-                      mpls_lse_to_stack(flow->mpls_lse));
+                      mpls_lse_to_label(mpls_lse),
+                      mpls_lse_to_tc(mpls_lse),
+                      mpls_lse_to_ttl(mpls_lse),
+                      mpls_lse_to_stack(mpls_lse));
     } else {
         ds_put_char(ds, '0');
     }
@@ -1163,12 +1154,8 @@ void
 flow_set_mpls_label(struct flow *flow, ovs_be32 label)
 {
     if (label == htonl(0)) {
-        flow->mpls_lse = htonl(0);
         flow->mpls_lses.lses[0] = htonl(0);     /* TODO:XXX */
     } else {
-        flow->mpls_lse &= ~htonl(MPLS_LABEL_MASK);
-        flow->mpls_lse |=
-            htonl((ntohl(label) << MPLS_LABEL_SHIFT) & MPLS_LABEL_MASK);
         flow->mpls_lses.lses[0] &= ~htonl(MPLS_LABEL_MASK);
         flow->mpls_lses.lses[0] |=
             htonl((ntohl(label) << MPLS_LABEL_SHIFT) & MPLS_LABEL_MASK);
@@ -1181,8 +1168,6 @@ void
 flow_set_mpls_tc(struct flow *flow, uint8_t tc)
 {
     tc &= 0x07;
-    flow->mpls_lse &= ~htonl(MPLS_TC_MASK);
-    flow->mpls_lse |= htonl(tc << MPLS_TC_SHIFT);
     flow->mpls_lses.lses[0] &= ~htonl(MPLS_TC_MASK);
     flow->mpls_lses.lses[0] |= htonl(tc << MPLS_TC_SHIFT);
 }
@@ -1192,8 +1177,6 @@ void
 flow_set_mpls_stack(struct flow *flow, uint8_t stack)
 {
     stack &= 0x01;
-    flow->mpls_lse &= ~htonl(MPLS_STACK_MASK);
-    flow->mpls_lse |= htonl(stack << MPLS_STACK_SHIFT);
     flow->mpls_lses.lses[0] &= ~htonl(MPLS_STACK_MASK);
     flow->mpls_lses.lses[0] |= htonl(stack << MPLS_STACK_SHIFT);
 }
@@ -1224,8 +1207,18 @@ flow_compose(struct ofpbuf *b, const struct flow *flow)
 
     if (flow->dl_type == htons(ETH_TYPE_MPLS) ||
         flow->dl_type == htons(ETH_TYPE_MPLS_MCAST)) {
-        push_mpls(b, flow->dl_type);
-        set_mpls_lse(b, flow->mpls_lse);
+        if (flow->mpls_lses.n_lses > 0) {
+            int i;
+            for (i = flow->mpls_lses.n_lses - 1; i > 0; i--) {
+                push_mpls(b, flow->dl_type);
+                set_mpls_lse(b, flow->mpls_lses.lses[i]);
+            }
+        } else {
+            push_mpls(b, flow->dl_type);
+            /* dummy label */
+            set_mpls_lse(b, htonl(MPLS_LABEL_MASK |
+                                  MPLS_STACK_MASK | MPLS_TTL_MASK));
+        }
     } else if (flow->dl_type == htons(ETH_TYPE_IP)) {
         struct ip_header *ip;
 

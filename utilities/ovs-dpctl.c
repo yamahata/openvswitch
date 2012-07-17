@@ -898,14 +898,16 @@ do_normalize_actions(int argc, char *argv[])
 
         case OVS_ACTION_ATTR_PUSH_MPLS:
             flow.dl_type = nl_attr_get_be16(a);
+            mpls_lses_push(&flow.mpls_lses, 0);
             continue;
 
         case OVS_ACTION_ATTR_POP_MPLS:
             flow.dl_type = nl_attr_get_be16(a);
+            mpls_lses_pop(&flow.mpls_lses);
             continue;
 
         case OVS_ACTION_ATTR_SET_MPLS_LSE:
-            flow.mpls_lse = nl_attr_get_be32(a);
+            mpls_lses_set(&flow.mpls_lses, nl_attr_get_be32(a));
             continue;
         }
 
@@ -937,11 +939,19 @@ do_normalize_actions(int argc, char *argv[])
             printf("no vlan: ");
         }
 
-        if (af->flow.mpls_lse != htonl(0)) {
-            printf("mpls(label=%"PRIu32",tc=%d,ttl=%d): ",
-                   mpls_lse_to_label(af->flow.mpls_lse),
-                   mpls_lse_to_tc(af->flow.mpls_lse),
-                   mpls_lse_to_ttl(af->flow.mpls_lse));
+        if (af->flow.mpls_lses.n_lses > 0) {
+            printf("mpls(");
+            for (i = 0; i < af->flow.mpls_lses.n_lses; i++) {
+                ovs_be32 mpls_lse= af->flow.mpls_lses.lses[i];
+                if (i > 0) {
+                    printf(":");
+                }
+                printf("label=%"PRIu32",tc=%d,ttl=%d",
+                       mpls_lse_to_label(mpls_lse),
+                       mpls_lse_to_tc(mpls_lse),
+                       mpls_lse_to_ttl(mpls_lse));
+            }
+            printf("): ");
         } else {
             printf("no mpls: ");
         }

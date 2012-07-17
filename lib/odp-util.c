@@ -115,8 +115,6 @@ ovs_key_attr_to_string(enum ovs_key_attr attr)
     case OVS_KEY_ATTR_ARP: return "arp";
     case OVS_KEY_ATTR_ND: return "nd";
     case OVS_KEY_ATTR_TUN_ID: return "tun_id";
-    case OVS_KEY_ATTR_MPLS: return "mpls";
-    case OVS_KEY_ATTR_INNER_MPLS: return "inner_mpls";
     case OVS_KEY_ATTR_MPLS_LSES: return "mpls_lses";
 
     case __OVS_KEY_ATTR_MAX:
@@ -742,8 +740,6 @@ odp_flow_key_attr_len(uint16_t type)
     case OVS_KEY_ATTR_ICMPV6: return sizeof(struct ovs_key_icmpv6);
     case OVS_KEY_ATTR_ARP: return sizeof(struct ovs_key_arp);
     case OVS_KEY_ATTR_ND: return sizeof(struct ovs_key_nd);
-    case OVS_KEY_ATTR_MPLS: return sizeof(ovs_be32);
-    case OVS_KEY_ATTR_INNER_MPLS: return sizeof(ovs_be32);
     case OVS_KEY_ATTR_MPLS_LSES: return -2;
 
     case OVS_KEY_ATTR_UNSPEC:
@@ -851,18 +847,6 @@ format_odp_key_attr(const struct nlattr *a, struct ds *ds)
     case OVS_KEY_ATTR_VLAN_QINQ:
         ds_put_char(ds, '(');
         format_vlan_tci(ds, nl_attr_get_be16(a));
-        ds_put_char(ds, ')');
-        break;
-
-    case OVS_KEY_ATTR_MPLS:
-        ds_put_char(ds, '(');
-        format_mpls_lse(ds, nl_attr_get_be32(a));
-        ds_put_char(ds, ')');
-        break;
-
-    case OVS_KEY_ATTR_INNER_MPLS:
-        ds_put_char(ds, '(');
-        format_mpls_lse(ds, nl_attr_get_be32(a));
         ds_put_char(ds, ')');
         break;
 
@@ -1170,36 +1154,6 @@ parse_odp_key_attr(const char *s, const struct simap *port_names,
 
         if (sscanf(s, "eth_type(%i)%n", &eth_type, &n) > 0 && n > 0) {
             nl_msg_put_be16(key, OVS_KEY_ATTR_ETHERTYPE, htons(eth_type));
-            return n;
-        }
-    }
-
-    {
-        int mpls_label, mpls_tc, mpls_ttl, mpls_stack;
-        ovs_be32 mpls_lse;
-        int n = -1;
-
-        if (sscanf(s, "mpls(label=%"SCNi32",tc=%i,ttl=%i,bos=%i)%n",
-                    &mpls_label, &mpls_tc, &mpls_ttl, &mpls_stack, &n) > 0 &&
-                    n > 0) {
-            mpls_lse = format_mpls_lse_values(mpls_label, mpls_tc,
-                                              mpls_ttl, mpls_stack);
-            nl_msg_put_be32(key, OVS_KEY_ATTR_MPLS, mpls_lse);
-            return n;
-        }
-    }
-
-    {
-        int mpls_label, mpls_tc, mpls_ttl, mpls_stack;
-        ovs_be32 mpls_lse;
-        int n = -1;
-
-        if (sscanf(s, "inner_mpls(label=%"SCNi32",tc=%i,ttl=%i,bos=%i)%n",
-                    &mpls_label, &mpls_tc, &mpls_ttl, &mpls_stack, &n) > 0 &&
-                    n > 0) {
-            mpls_lse = format_mpls_lse_values(mpls_label, mpls_tc,
-                                              mpls_ttl, mpls_stack);
-            nl_msg_put_be32(key, OVS_KEY_ATTR_INNER_MPLS, mpls_lse);
             return n;
         }
     }
@@ -1575,11 +1529,12 @@ odp_flow_key_from_flow(struct ofpbuf *buf, const struct flow *flow)
 
     if (flow->dl_type == htons(ETH_TYPE_MPLS) ||
         flow->dl_type == htons(ETH_TYPE_MPLS_MCAST)) {
-        nl_msg_put_be32(buf, OVS_KEY_ATTR_MPLS, flow->mpls_lse);
-        if (flow->inner_mpls_lse != htonl(0)) {
-            nl_msg_put_be32(buf, OVS_KEY_ATTR_INNER_MPLS, flow->inner_mpls_lse);
+        if (flow->mpls_lses.n_lses > 0) {
+            nl_msg_put_unspec(buf, OVS_KEY_ATTR_MPLS_LSES,
+                              flow->mpls_lses.lses,
+                              sizeof(flow->mpls_lses.lses[0]) *
+                              flow->mpls_lses.n_lses);
         }
-        /* TODO:XXX update flow for OVS_KEY_ATTR_MPLS_LSES */
     }
 
     if (flow->dl_type == htons(ETH_TYPE_IP)) {
@@ -1844,12 +1799,6 @@ parse_mpls_onward(const struct nlattr *attrs[OVS_KEY_ATTR_MAX + 1],
     }
     if (error) {
         return ODP_FIT_ERROR;
-    }
-    if (mpls->n_lses > 0) {
-        flow->mpls_lse = mpls->lses[0];
-    }
-    if (mpls->n_lses > 1) {
-        flow->inner_mpls_lse = mpls->lses[mpls->n_lses - 1];
     }
     expected_attrs |= (UINT64_C(1) << OVS_KEY_ATTR_MPLS_LSES);
     return check_expectations(present_attrs, out_of_range_attr, expected_attrs,
@@ -2358,20 +2307,19 @@ void
 commit_mpls_push_action(struct flow *flow, struct flow *base,
                         struct ofpbuf *odp_actions, ovs_be16 eth_type)
 {
+    ovs_be32 mpls_lse;
     ovs_be32 mpls_label, mpls_tc, mpls_ttl, mpls_stack;
     assert(eth_type == htons(ETH_TYPE_MPLS) ||
            eth_type == htons(ETH_TYPE_MPLS_MCAST));
 
-    if (base->mpls_lse != htonl(0)) {
-        flow->mpls_lse = base->mpls_lse;
-        flow->mpls_lse &= ~htonl(MPLS_STACK_MASK);
+    if (flow->mpls_lses.n_lses > 0) {
+        mpls_lse = flow->mpls_lses.lses[0];
+        mpls_lse &= ~htonl(MPLS_STACK_MASK);
     } else {
-        flow->mpls_lse &= ~htonl(MPLS_LABEL_MASK | MPLS_TC_MASK |
-                                 MPLS_TTL_MASK | MPLS_STACK_MASK);
         if (flow->dl_type == htons(ETH_TYPE_IPV6)) {
             mpls_label = htonl(0x2); /* IPV6 Explicit Null. */
         } else {
-             mpls_label = htonl(0x0); /* IPV4 Explicit Null. */
+            mpls_label = htonl(0x0); /* IPV4 Explicit Null. */
         }
         mpls_tc = htonl(((flow->nw_tos & IP_DSCP_MASK) >> 2) << MPLS_TC_SHIFT);
         mpls_ttl = htonl(flow->nw_ttl << MPLS_TTL_SHIFT);
@@ -2379,13 +2327,14 @@ commit_mpls_push_action(struct flow *flow, struct flow *base,
             mpls_ttl = htonl(0x40); /* Set default ttl for non-IP. */
         }
         mpls_stack = htonl(0x1 << MPLS_STACK_SHIFT);
-        flow->mpls_lse = mpls_label | mpls_tc | mpls_ttl | mpls_stack;
+        mpls_lse = mpls_label | mpls_tc | mpls_ttl | mpls_stack;
     }
 
     nl_msg_put_be16(odp_actions, OVS_ACTION_ATTR_PUSH_MPLS, eth_type);
     /* Update dl_type and mpls_lse fields. */
     base->dl_type = flow->dl_type = eth_type;
-    base->mpls_lse = flow->mpls_lse;
+    mpls_lses_push(&flow->mpls_lses, mpls_lse);
+    mpls_lses_push(&base->mpls_lses, mpls_lse);
 }
 
 /* Handle MPLS Pop action. Update packet flow. */
@@ -2398,10 +2347,12 @@ commit_mpls_pop_action(struct flow *flow, struct flow *base,
     nl_msg_put_be16(odp_actions, OVS_ACTION_ATTR_POP_MPLS, eth_type);
 
     /* Update dl_type and mpls_lse fields. */
-    if (flow->mpls_lse & htonl(MPLS_STACK_MASK)) {
+    if (flow->mpls_lses.n_lses == 1) {
         assert(eth_type != htons(ETH_TYPE_MPLS) &&
                eth_type != htons(ETH_TYPE_MPLS_MCAST));
         base->dl_type = flow->dl_type = eth_type;
+        mpls_lses_pop(&flow->mpls_lses);
+        mpls_lses_pop(&base->mpls_lses);
     }
 }
 
@@ -2410,13 +2361,13 @@ void
 commit_mpls_lse_action(const struct flow *flow, struct flow *base,
                          struct ofpbuf *odp_actions)
 {
-    if (base->mpls_lse == flow->mpls_lse) {
+    assert(flow->mpls_lses.n_lses > 0);
+    if (base->mpls_lses.lses[0] == flow->mpls_lses.lses[0]) {
         return;
     }
-
-    nl_msg_put_be32(odp_actions, OVS_ACTION_ATTR_SET_MPLS_LSE, flow->mpls_lse);
-    base->mpls_lse = flow->mpls_lse;
-    base->mpls_lses = flow->mpls_lses;
+    nl_msg_put_be32(odp_actions, OVS_ACTION_ATTR_SET_MPLS_LSE,
+                    flow->mpls_lses.lses[0]);
+    base->mpls_lses.lses[0] = flow->mpls_lses.lses[0];
 }
 
 static void

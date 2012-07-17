@@ -63,8 +63,6 @@ struct flow {
     ovs_be32 nw_src;            /* IPv4 source address. */
     ovs_be32 nw_dst;            /* IPv4 destination address. */
     ovs_be32 ipv6_label;        /* IPv6 flow label. */
-    ovs_be32 mpls_lse;          /* MPLS label stack entry. */
-    ovs_be32 inner_mpls_lse;    /* Inner MPLS label stack entry. */
     uint16_t in_port;           /* OpenFlow port number of input port. */
     ovs_be16 vlan_tci;          /* If 802.1Q, TCI | VLAN_CFI; otherwise 0. */
     ovs_be16 vlan_tpid;         /* TPID = outer tpid either 0x8100/0x88a8. */
@@ -98,14 +96,14 @@ struct flow_metadata {
 
 /* Assert that there are FLOW_SIG_SIZE bytes of significant data in "struct
  * flow", followed by FLOW_PAD_SIZE bytes of padding. */
-#define FLOW_SIG_SIZE (190 + FLOW_N_REGS * 4)
+#define FLOW_SIG_SIZE (182 + FLOW_N_REGS * 4)
 #define FLOW_PAD_SIZE 2
 BUILD_ASSERT_DECL(offsetof(struct flow, nw_frag) == FLOW_SIG_SIZE - 1);
 BUILD_ASSERT_DECL(sizeof(((struct flow *)0)->nw_frag) == 1);
 BUILD_ASSERT_DECL(sizeof(struct flow) == FLOW_SIG_SIZE + FLOW_PAD_SIZE);
 
 /* Remember to update FLOW_WC_SEQ when changing 'struct flow'. */
-BUILD_ASSERT_DECL(FLOW_SIG_SIZE == 222 && FLOW_WC_SEQ == 15);
+BUILD_ASSERT_DECL(FLOW_SIG_SIZE == 214 && FLOW_WC_SEQ == 15);
 
 void flow_extract(struct ofpbuf *, uint32_t priority, ovs_be64 tun_id,
                   uint16_t in_port, struct flow *);
