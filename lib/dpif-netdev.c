@@ -1195,8 +1195,6 @@ execute_set_action(struct ofpbuf *packet, const struct nlattr *a)
      case OVS_KEY_ATTR_IN_PORT:
      case OVS_KEY_ATTR_VLAN:
      case OVS_KEY_ATTR_VLAN_QINQ:
-     case OVS_KEY_ATTR_MPLS:
-     case OVS_KEY_ATTR_INNER_MPLS:
      case OVS_KEY_ATTR_MPLS_LSES:
      case OVS_KEY_ATTR_ICMP:
      case OVS_KEY_ATTR_ICMPV6:
