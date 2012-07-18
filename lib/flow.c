@@ -19,6 +19,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <mpls.h>
 #include <netinet/in.h>
 #include <netinet/icmp6.h>
 #include <netinet/ip6.h>
@@ -94,6 +95,7 @@ parse_mpls(struct ofpbuf *b, struct flow *flow)
     struct mpls_hdr *outer_mh = NULL;
     struct mpls_hdr *mh;
 
+    b->l2_5 = b->data;
     do {
         /* Make sure there is some data following MPLS header
            before proceeding with parsing MPLS headers. */
@@ -111,6 +113,9 @@ parse_mpls(struct ofpbuf *b, struct flow *flow)
     if (flow->inner_mpls_lse == htonl(0) && outer_mh != mh) {
         flow->inner_mpls_lse = mh->mpls_lse;
     }
+
+    b->l3 = b->data;
+    mpls_lses_parsed(&flow->mpls_lses, b);
 }
 
 static void
@@ -531,7 +536,7 @@ flow_zero_wildcards(struct flow *flow, const struct flow_wildcards *wildcards)
     const flow_wildcards_t wc = wildcards->wildcards;
     int i;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 15);
 
     for (i = 0; i < FLOW_N_REGS; i++) {
         flow->regs[i] &= wildcards->reg_masks[i];
@@ -565,16 +570,23 @@ flow_zero_wildcards(struct flow *flow, const struct flow_wildcards *wildcards)
     }
 
     /* Inner mpls label stack entry has no mask/match. */
+    memset(flow->mpls_lses.lses + 1, 0,
+           sizeof(flow->mpls_lses.lses[0]) * MPLS_LSE_MAX - 1);
+    flow->mpls_lses.n_lses = 0;
     flow->inner_mpls_lse = 0;
     flow->mpls_lse &= ~htonl(MPLS_TTL_MASK);
+    flow->mpls_lses.lses[0] &= ~htonl(MPLS_TTL_MASK);
     if (wc & FWW_MPLS_LABEL) {
         flow->mpls_lse &= ~htonl(MPLS_LABEL_MASK);
+        flow->mpls_lses.lses[0] &= ~htonl(MPLS_LABEL_MASK);
     }
     if (wc & FWW_MPLS_TC) {
         flow->mpls_lse &= ~htonl(MPLS_TC_MASK);
+        flow->mpls_lses.lses[0] &= ~htonl(MPLS_TC_MASK);
     }
     if (wc & FWW_MPLS_STACK) {
         flow->mpls_lse &= ~htonl(MPLS_STACK_MASK);
+        flow->mpls_lses.lses[0] &= ~htonl(MPLS_STACK_MASK);
     }
     if (wc & FWW_VLAN_TPID) {
         flow->vlan_tpid = 0;
@@ -602,7 +614,7 @@ flow_zero_wildcards(struct flow *flow, const struct flow_wildcards *wildcards)
 void
 flow_get_metadata(const struct flow *flow, struct flow_metadata *fmd)
 {
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 15);
 
     fmd->tun_id = flow->tun_id;
     fmd->tun_id_mask = htonll(UINT64_MAX);
@@ -711,7 +723,7 @@ flow_print(FILE *stream, const struct flow *flow)
 void
 flow_wildcards_init_catchall(struct flow_wildcards *wc)
 {
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 15);
 
     wc->wildcards = FWW_ALL;
     wc->tun_id_mask = htonll(0);
@@ -738,7 +750,7 @@ flow_wildcards_init_catchall(struct flow_wildcards *wc)
 void
 flow_wildcards_init_exact(struct flow_wildcards *wc)
 {
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 15);
 
     wc->wildcards = 0;
     wc->tun_id_mask = htonll(UINT64_MAX);
@@ -767,7 +779,7 @@ flow_wildcards_is_exact(const struct flow_wildcards *wc)
 {
     int i;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 15);
 
     if (wc->wildcards
         || wc->tun_id_mask != htonll(UINT64_MAX)
@@ -804,7 +816,7 @@ flow_wildcards_is_catchall(const struct flow_wildcards *wc)
 {
     int i;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 15);
 
     if (wc->wildcards != FWW_ALL
         || wc->tun_id_mask != htonll(0)
@@ -844,7 +856,7 @@ flow_wildcards_combine(struct flow_wildcards *dst,
 {
     int i;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 15);
 
     dst->wildcards = src1->wildcards | src2->wildcards;
     dst->tun_id_mask = src1->tun_id_mask & src2->tun_id_mask;
@@ -888,7 +900,7 @@ flow_wildcards_equal(const struct flow_wildcards *a,
 {
     int i;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 15);
 
     if (a->wildcards != b->wildcards
         || a->tun_id_mask != b->tun_id_mask
@@ -927,7 +939,7 @@ flow_wildcards_has_extra(const struct flow_wildcards *a,
     uint8_t eth_masked[ETH_ADDR_LEN];
     struct in6_addr ipv6_masked;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 15);
 
     for (i = 0; i < FLOW_N_REGS; i++) {
         if ((a->reg_masks[i] & b->reg_masks[i]) != b->reg_masks[i]) {
@@ -1152,9 +1164,13 @@ flow_set_mpls_label(struct flow *flow, ovs_be32 label)
 {
     if (label == htonl(0)) {
         flow->mpls_lse = htonl(0);
+        flow->mpls_lses.lses[0] = htonl(0);     /* TODO:XXX */
     } else {
         flow->mpls_lse &= ~htonl(MPLS_LABEL_MASK);
         flow->mpls_lse |=
+            htonl((ntohl(label) << MPLS_LABEL_SHIFT) & MPLS_LABEL_MASK);
+        flow->mpls_lses.lses[0] &= ~htonl(MPLS_LABEL_MASK);
+        flow->mpls_lses.lses[0] |=
             htonl((ntohl(label) << MPLS_LABEL_SHIFT) & MPLS_LABEL_MASK);
     }
 }
@@ -1167,6 +1183,8 @@ flow_set_mpls_tc(struct flow *flow, uint8_t tc)
     tc &= 0x07;
     flow->mpls_lse &= ~htonl(MPLS_TC_MASK);
     flow->mpls_lse |= htonl(tc << MPLS_TC_SHIFT);
+    flow->mpls_lses.lses[0] &= ~htonl(MPLS_TC_MASK);
+    flow->mpls_lses.lses[0] |= htonl(tc << MPLS_TC_SHIFT);
 }
 
 /* Sets the MPLS STACK bit that 'flow' matches to which should be 0 or 1. */
@@ -1176,6 +1194,8 @@ flow_set_mpls_stack(struct flow *flow, uint8_t stack)
     stack &= 0x01;
     flow->mpls_lse &= ~htonl(MPLS_STACK_MASK);
     flow->mpls_lse |= htonl(stack << MPLS_STACK_SHIFT);
+    flow->mpls_lses.lses[0] &= ~htonl(MPLS_STACK_MASK);
+    flow->mpls_lses.lses[0] |= htonl(stack << MPLS_STACK_SHIFT);
 }
 
 /* Puts into 'b' a packet that flow_extract() would parse as having the given

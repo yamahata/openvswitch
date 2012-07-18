@@ -1829,43 +1829,29 @@ parse_mpls_onward(const struct nlattr *attrs[OVS_KEY_ATTR_MAX + 1],
                    uint64_t expected_attrs, struct flow *flow,
                    const struct nlattr *key, size_t key_len)
 {
-    enum odp_key_fitness fitness;
-    ovs_be32 mpls_lse;
+    struct mpls_lses *mpls = &flow->mpls_lses;
+    int error;
 
-    /* TODO:XXX OVS_KEY_ATTR_MPLS_LSES */
-
-    /* Calulate fitness of outer attributes. */
-    expected_attrs |= (UINT64_C(1) << OVS_KEY_ATTR_MPLS);
-    fitness = check_expectations(present_attrs, out_of_range_attr,
-                                 expected_attrs, key, key_len);
-
-    /* Get the MPLS LSE value. */
-    if (!(present_attrs & (UINT64_C(1) << OVS_KEY_ATTR_MPLS))) {
+    if (!(present_attrs & (UINT64_C(1) << OVS_KEY_ATTR_MPLS_LSES))) {
         return ODP_FIT_TOO_LITTLE;
     }
-    mpls_lse = nl_attr_get_be32(attrs[OVS_KEY_ATTR_MPLS]);
-    if (mpls_lse == htonl(0)) {
-        /* Corner case for a truncated MPLS header. */
-        return fitness;
+    error = mpls_lses_from_keys(
+        mpls, nl_attr_get(attrs[OVS_KEY_ATTR_MPLS_LSES]),
+        nl_attr_get_size(attrs[OVS_KEY_ATTR_MPLS_LSES]));
+    if (error == -E2BIG) {
+        /* too many stacked lses. Abandon process lses. */
+        return ODP_FIT_TOO_LITTLE;
     }
-
-    /* Set mpls_lse. */
-    flow->mpls_lse = mpls_lse;
-
-    /* Handle Inner MPLS lse. */
-    if (present_attrs & (UINT64_C(1) << OVS_KEY_ATTR_INNER_MPLS)) {
-        expected_attrs |= (UINT64_C(1) << OVS_KEY_ATTR_INNER_MPLS);
-        fitness = check_expectations(present_attrs, out_of_range_attr,
-                                 expected_attrs, key, key_len);
-        mpls_lse = nl_attr_get_be32(attrs[OVS_KEY_ATTR_INNER_MPLS]);
-        if (mpls_lse == htonl(0)) {
-            /* Corner case for a truncated MPLS header. */
-            return fitness;
-        }
-        /* Set mpls_lse. */
-        flow->inner_mpls_lse = mpls_lse;
+    if (error) {
+        return ODP_FIT_ERROR;
     }
-
+    if (mpls->n_lses > 0) {
+        flow->mpls_lse = mpls->lses[0];
+    }
+    if (mpls->n_lses > 1) {
+        flow->inner_mpls_lse = mpls->lses[mpls->n_lses - 1];
+    }
+    expected_attrs |= (UINT64_C(1) << OVS_KEY_ATTR_MPLS_LSES);
     return check_expectations(present_attrs, out_of_range_attr, expected_attrs,
                               key, key_len);
 }
@@ -2430,6 +2416,7 @@ commit_mpls_lse_action(const struct flow *flow, struct flow *base,
 
     nl_msg_put_be32(odp_actions, OVS_ACTION_ATTR_SET_MPLS_LSE, flow->mpls_lse);
     base->mpls_lse = flow->mpls_lse;
+    base->mpls_lses = flow->mpls_lses;
 }
 
 static void

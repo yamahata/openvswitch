@@ -631,7 +631,7 @@ cls_rule_format(const struct cls_rule *rule, struct ds *s)
 
     int i;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 15);
 
     if (rule->priority != OFP_DEFAULT_PRIORITY) {
         ds_put_format(s, "priority=%d,", rule->priority);
@@ -778,17 +778,18 @@ cls_rule_format(const struct cls_rule *rule, struct ds *s)
     if (!(w & FWW_NW_TTL)) {
         ds_put_format(s, "nw_ttl=%"PRIu8",", f->nw_ttl);
     }
+    assert(f->mpls_lses.n_lses <= MPLS_LSE_MAX);
     if (!(w & FWW_MPLS_LABEL)) {
         ds_put_format(s, "mpls_label=%"PRIu32",",
-                 mpls_lse_to_label(f->mpls_lse));
+                      mpls_lse_to_label(f->mpls_lses.lses[0]));
     }
     if (!(w & FWW_MPLS_TC)) {
         ds_put_format(s, "mpls_tc=%"PRIu8",",
-                 mpls_lse_to_tc(f->mpls_lse));
+                      mpls_lse_to_tc(f->mpls_lses.lses[0]));
     }
     if (!(w & FWW_MPLS_STACK)) {
         ds_put_format(s, "mpls_stack=%"PRIu8",",
-                 mpls_lse_to_stack(f->mpls_lse));
+                      mpls_lse_to_stack(f->mpls_lses.lses[0]));
     }
     switch (wc->nw_frag_mask) {
     case FLOW_NW_FRAG_ANY | FLOW_NW_FRAG_LATER:
@@ -1309,7 +1310,7 @@ flow_equal_except(const struct flow *a, const struct flow *b,
     const flow_wildcards_t wc = wildcards->wildcards;
     int i;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 14);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 15);
 
     for (i = 0; i < FLOW_N_REGS; i++) {
         if ((a->regs[i] ^ b->regs[i]) & wildcards->reg_masks[i]) {
@@ -1340,11 +1341,14 @@ flow_equal_except(const struct flow *a, const struct flow *b,
                                      wildcards->arp_tha_mask)
             && !((a->ipv6_label ^ b->ipv6_label) & wildcards->ipv6_label_mask)
             && (wc & FWW_MPLS_LABEL ||
-                !((a->mpls_lse ^ b->mpls_lse) & htonl(MPLS_LABEL_MASK)))
+                !((a->mpls_lses.lses[0] ^ b->mpls_lses.lses[0]) &
+                  htonl(MPLS_LABEL_MASK)))
             && (wc & FWW_MPLS_TC ||
-                !((a->mpls_lse ^ b->mpls_lse) & htonl(MPLS_TC_MASK)))
+                !((a->mpls_lses.lses[0] ^ b->mpls_lses.lses[0]) &
+                  htonl(MPLS_TC_MASK)))
             && (wc & FWW_MPLS_STACK ||
-                !((a->mpls_lse ^ b->mpls_lse) & htonl(MPLS_STACK_MASK)))
+                !((a->mpls_lses.lses[0] ^ b->mpls_lses.lses[0]) &
+                  htonl(MPLS_STACK_MASK)))
             && (wc & FWW_VLAN_TPID || a->vlan_tpid == b->vlan_tpid)
             && (wc & FWW_VLAN_QINQ_VID ||
                 !((a->vlan_qinq_tci ^ b->vlan_qinq_tci) & htons(VLAN_VID_MASK)))
