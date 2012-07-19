@@ -809,6 +809,17 @@ ofpacts_pull_openflow11_actions(struct ofpbuf *openflow,
                                 ofpacts_from_openflow11);
 }
 
+static enum ofperr
+ofpacts_pull_openflow11_inst_actions(const struct ofp11_instruction *inst,
+                                     struct ofpbuf *ofpacts)
+{
+    const union ofp_action *actions;
+    size_t n_actions;
+
+    get_actions_from_instruction(inst, &actions, &n_actions);
+    return ofpacts_from_openflow11(actions, n_actions, ofpacts);
+}
+
 enum ofperr
 ofpacts_pull_openflow11_instructions(struct ofpbuf *openflow,
                                      unsigned int instructions_len,
@@ -846,15 +857,32 @@ ofpacts_pull_openflow11_instructions(struct ofpbuf *openflow,
     }
 
     if (insts[OVSINST_OFPIT11_APPLY_ACTIONS]) {
-        const union ofp_action *actions;
-        size_t n_actions;
-
-        get_actions_from_instruction(insts[OVSINST_OFPIT11_APPLY_ACTIONS],
-                                     &actions, &n_actions);
-        error = ofpacts_from_openflow11(actions, n_actions, ofpacts);
+        error = ofpacts_pull_openflow11_inst_actions(
+            insts[OVSINST_OFPIT11_APPLY_ACTIONS], ofpacts);
         if (error) {
             goto exit;
         }
+    }
+    if (insts[OVSINST_OFPIT11_CLEAR_ACTIONS]) {
+        ofpact_put_CLEAR_ACTIONS(ofpacts);
+    }
+    if (insts[OVSINST_OFPIT11_WRITE_ACTIONS]) {
+        ofpact_put_WRITE_ACTIONS(ofpacts);
+        error = ofpacts_pull_openflow11_inst_actions(
+            insts[OVSINST_OFPIT11_WRITE_ACTIONS], ofpacts);
+        if (error) {
+            goto exit;
+        }
+    }
+    /* TODO:XXX Write-Metadata */
+    if (insts[OVSINST_OFPIT11_GOTO_TABLE]) {
+        struct ofp11_instruction_goto_table *oigt;
+        struct ofpact_goto_table *ogt;
+
+        oigt = (struct ofp11_instruction_goto_table *)
+            insts[OVSINST_OFPIT11_GOTO_TABLE];
+        ogt = ofpact_put_GOTO_TABLE(ofpacts);
+        ogt->table_id = oigt->table_id;
     }
 
     if (insts[OVSINST_OFPIT11_GOTO_TABLE] ||
