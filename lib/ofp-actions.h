@@ -553,4 +553,6 @@ ofpact_is_instruction(const struct ofpact *a)
         || a->type == OFPACT_GOTO_TABLE;
 }
 
+int ofpact_instruction_type_from_name(const char *name);
+
 #endif /* ofp-actions.h */

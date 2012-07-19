@@ -471,6 +471,77 @@ str_to_ofpacts(const struct flow *flow, char *str, struct ofpbuf *ofpacts)
     ofpact_pad(ofpacts);
 }
 
+static void
+parse_named_instruction(enum ovs_instruction_type type,
+                        const struct flow *flow,
+                        char *arg, struct ofpbuf *ofpacts)
+{
+    switch (type) {
+    case OVSINST_OFPIT11_APPLY_ACTIONS:
+        str_to_ofpacts(flow, arg, ofpacts);
+        break;
+
+    case OVSINST_OFPIT11_WRITE_ACTIONS:
+        ofpact_put_WRITE_ACTIONS(ofpacts);
+        str_to_ofpacts(flow, arg, ofpacts);
+        break;
+
+    case OVSINST_OFPIT11_CLEAR_ACTIONS:
+        ofpact_put_CLEAR_ACTIONS(ofpacts);
+        break;
+
+    case OVSINST_OFPIT11_WRITE_METADATA:
+        NOT_REACHED();  /* TODO:XXX */
+        break;
+
+    case OVSINST_OFPIT11_GOTO_TABLE: {
+        struct ofpact_goto_table *ogt = ofpact_put_GOTO_TABLE(ofpacts);
+        char *table_s = strsep(&arg, ",");
+        ogt->table_id = table_s && table_s[0] ? str_to_u32(table_s) : 255;
+        break;
+    }
+    }
+}
+
+static void
+str_to_inst_ofpacts(const struct flow *flow, char *str, struct ofpbuf *ofpacts)
+{
+    char *pos, *inst, *arg;
+    char *inst_args[N_OVS_INSTRUCTIONS];
+    int type;
+    const char *prev_inst = NULL;
+    int prev_type = -1;
+
+    memset(inst_args, 0, sizeof inst_args);
+    pos = str;
+    while (ofputil_parse_key_value(&pos, &inst, &arg)) {
+        type = ofpact_instruction_type_from_name(inst);
+        if (type < 0) {
+            ovs_fatal(0, "Unknown instruction: %s", inst);
+        }
+        if (type == prev_type) {
+            ovs_fatal(0, "instruction can be specified at most once: %s",
+                      inst);
+        }
+        if (type <= prev_type) {
+            ovs_fatal(0, "Instruction %s must be specified before %s",
+                      inst, prev_inst);
+        }
+        inst_args[type] = arg;
+
+        prev_inst = inst;
+        prev_type = type;
+    }
+
+    for (type = 0; type < N_OVS_INSTRUCTIONS; type++) {
+        if (inst_args[type]) {
+            parse_named_instruction(type, flow, inst_args[type], ofpacts);
+        }
+    }
+
+    ofpact_pad(ofpacts);
+}
+
 struct protocol {
     const char *name;
     uint16_t dl_type;
@@ -552,6 +623,7 @@ parse_ofp_str(struct ofputil_flow_mod *fm, int command, const char *str_,
     } fields;
     char *string = xstrdup(str_);
     char *save_ptr = NULL;
+    char *inst_str = NULL;
     char *act_str = NULL;
     char *name;
 
@@ -602,17 +674,35 @@ parse_ofp_str(struct ofputil_flow_mod *fm, int command, const char *str_,
     fm->flags = 0;
     if (fields & F_ACTIONS) {
         act_str = strstr(string, "action");
-        if (!act_str) {
-            ofp_fatal(str_, verbose, "must specify an action");
-        }
-        *act_str = '\0';
+        if (act_str) {
+            *act_str = '\0';
 
-        act_str = strchr(act_str + 1, '=');
-        if (!act_str) {
-            ofp_fatal(str_, verbose, "must specify an action");
+            act_str = strchr(act_str + 1, '=');
+            if (!act_str) {
+                ofp_fatal(str_, verbose, "must specify an action");
+            }
+
+            act_str++;
         }
 
-        act_str++;
+        inst_str = strstr(string, "instruction");
+        if (inst_str) {
+            *inst_str = '\0';
+
+            inst_str = strchr(inst_str + 1, '=');
+            if (!inst_str) {
+                ofp_fatal(str_, verbose, "must specify an instruction");
+            }
+
+            inst_str++;
+        }
+    }
+    if (fields & F_ACTIONS && act_str == NULL && inst_str == NULL) {
+        ofp_fatal(str_, verbose, "must specify an action or an instruction");
+    }
+    if (act_str && inst_str) {
+        ofp_fatal(str_, verbose,
+                  "must not specify both action and instruction.");
     }
     for (name = strtok_r(string, "=, \t\r\n", &save_ptr); name;
          name = strtok_r(NULL, "=, \t\r\n", &save_ptr)) {
@@ -689,7 +779,11 @@ parse_ofp_str(struct ofputil_flow_mod *fm, int command, const char *str_,
         struct ofpbuf ofpacts;
 
         ofpbuf_init(&ofpacts, 32);
-        str_to_ofpacts(&fm->cr.flow, act_str, &ofpacts);
+        if (act_str) {
+            str_to_ofpacts(&fm->cr.flow, act_str, &ofpacts);
+        } else {
+            str_to_inst_ofpacts(&fm->cr.flow, inst_str, &ofpacts);
+        }
         fm->ofpacts_len = ofpacts.size;
         fm->ofpacts = ofpbuf_steal_data(&ofpacts);
     } else {

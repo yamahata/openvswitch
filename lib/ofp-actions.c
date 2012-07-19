@@ -692,6 +692,28 @@ ofpacts_from_openflow11(const union ofp_action *in, size_t n_in,
 OVS_INSTRUCTIONS
 #undef DEFINE_INST
 
+int
+ofpact_instruction_type_from_name(const char *name)
+{
+    struct type_info {
+        enum ovs_instruction_type type;
+        const char *name;
+    };
+    static const struct type_info info[N_OVS_INSTRUCTIONS] = {
+#define DEFINE_INST(ENUM, STRUCT, EXTENSIBLE, NAME)    {ENUM, NAME},
+OVS_INSTRUCTIONS
+#undef DEFINE_INST
+    };
+    const struct type_info *p;
+
+    for (p = info; p < &info[ARRAY_SIZE(info)]; p++) {
+        if (!strcasecmp(name, p->name)) {
+            return p->type;
+        }
+    }
+    return -1;
+}
+
 static inline struct ofp11_instruction *
 instruction_next(const struct ofp11_instruction *inst)
 {
