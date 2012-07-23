@@ -1370,15 +1370,9 @@ ofpact_to_openflow11(const struct ofpact *a, struct ofpbuf *out)
         break;
 
     case OFPACT_CLEAR_ACTIONS:
-        NOT_REACHED();  /* TODO:XXX */
-        break;
-
     case OFPACT_WRITE_ACTIONS:
-        NOT_REACHED();  /* TODO:XXX */
-        break;
-
     case OFPACT_GOTO_TABLE:
-        NOT_REACHED();  /* TODO:XXX */
+        NOT_REACHED();
         break;
 
     case OFPACT_CONTROLLER:
@@ -1416,18 +1410,10 @@ ofpacts_put_openflow11_actions(const struct ofpact ofpacts[],
     }
 }
 
-void
-ofpacts_put_openflow11_instructions(const struct ofpact ofpacts[],
-                                    size_t ofpacts_len,
-                                    struct ofpbuf *openflow)
+static void
+ofpacts_update_instruction_actions(struct ofpbuf *openflow, size_t ofs)
 {
     struct ofp11_instruction_actions *oia;
-    size_t ofs;
-
-    /* Put an OFPIT11_APPLY_ACTIONS instruction and fill it in. */
-    ofs = openflow->size;
-    instruction_put_OFPIT11_APPLY_ACTIONS(openflow);
-    ofpacts_put_openflow11_actions(ofpacts, ofpacts_len, openflow);
 
     /* Update the instruction's length (or, if it's empty, delete it). */
     oia = ofpbuf_at_assert(openflow, ofs, sizeof *oia);
@@ -1435,6 +1421,52 @@ ofpacts_put_openflow11_instructions(const struct ofpact ofpacts[],
         oia->len = htons(openflow->size - ofs);
     } else {
         openflow->size = ofs;
+    }
+}
+
+void
+ofpacts_put_openflow11_instructions(const struct ofpact ofpacts[],
+                                    size_t ofpacts_len,
+                                    struct ofpbuf *openflow)
+{
+    bool in_instruction;
+    size_t ofs;
+    const struct ofpact *a;
+
+    in_instruction = false;
+    ofs = 0;
+    OFPACT_FOR_EACH (a, ofpacts, ofpacts_len) {
+        if (in_instruction && ofpact_is_instruction(a)) {
+            ofpacts_update_instruction_actions(openflow, ofs);
+            in_instruction = false;
+            ofs = 0;
+        }
+
+        if (a->type == OFPACT_CLEAR_ACTIONS) {
+            struct ofp11_instruction_actions *oia;
+            oia = instruction_put_OFPIT11_CLEAR_ACTIONS(openflow);
+            memset(oia->pad, 0, sizeof oia->pad);
+        } else if (a->type == OFPACT_WRITE_ACTIONS) {
+            in_instruction = true;
+            ofs = openflow->size;
+            instruction_put_OFPIT11_WRITE_ACTIONS(openflow);
+        /* TODO:XXX write-metadata */
+        } else if (a->type == OFPACT_GOTO_TABLE) {
+            struct ofp11_instruction_goto_table *oigt;
+            oigt = instruction_put_OFPIT11_GOTO_TABLE(openflow);
+            oigt->table_id = ofpact_get_GOTO_TABLE(a)->table_id;
+            memset(oigt->pad, 0, sizeof oigt->pad);
+        } else {
+            if (!in_instruction) {
+                in_instruction = true;
+                ofs = openflow->size;
+                instruction_put_OFPIT11_APPLY_ACTIONS(openflow);
+            }
+            ofpact_to_openflow11(a, openflow);
+        }
+    }
+    if (in_instruction) {
+        ofpacts_update_instruction_actions(openflow, ofs);
     }
 }
 

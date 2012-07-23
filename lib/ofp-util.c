@@ -1808,6 +1808,32 @@ ofputil_encode_flow_mod(const struct ofputil_flow_mod *fm,
                : fm->command);
 
     switch (protocol) {
+#if 0
+    case OFPUTIL_P_OF11: {
+        struct ofp11_flow_mod *ofm11;
+        msg = ofpbuf_new(sizeof *ofm11 + NXM_TYPICAL_LEN + fm->ofpacts_len);
+        ofm11 = put_openflow(sizeof *ofm11, ofp_version, OFPT11_FLOW_MOD, msg);
+        ofm11->cookie = fm->new_cookie;
+        ofm11->cookie_mask = fm->cookie_mask;
+        ofm11->table_id = fm->table_id;
+        ofm11->command = fm->command;
+        ofm11->idle_timeout = htons(fm->idle_timeout);
+        ofm11->hard_timeout = htons(fm->hard_timeout);
+        ofm11->priority = htons(fm->cr.priority);
+        ofm11->buffer_id = htonl(fm->buffer_id);
+        ofm11->out_port = ofputil_port_to_ofp11(fm->out_port);
+        ofm11->out_group = htonl(OFPG11_ANY);
+        ofm11->flags = htons(fm->flags);
+        memset(ofm11->pad, 0, sizeof ofm11->pad);
+        /* TODO:XXX ofm11::match */
+        if (fm->ofpacts) {
+            ofpacts_put_openflow11_instructions(fm->ofpacts, fm->ofpacts_len,
+                                                msg);
+        }
+        break;
+    }
+#endif
+
     case OFPUTIL_P_OF10:
     case OFPUTIL_P_OF10_TID:
         msg = ofpbuf_new(sizeof *ofm + fm->ofpacts_len);
