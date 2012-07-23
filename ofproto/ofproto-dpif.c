@@ -5539,6 +5539,18 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             ctx->has_fin_timeout = true;
             xlate_fin_timeout(ctx, ofpact_get_FIN_TIMEOUT(a));
             break;
+
+        case OFPACT_CLEAR_ACTIONS:
+            NOT_REACHED();  /* TODO:XXX */
+            break;
+
+        case OFPACT_WRITE_ACTIONS:
+            NOT_REACHED();  /* TODO:XXX */
+            break;
+
+        case OFPACT_GOTO_TABLE:
+            NOT_REACHED();  /* TODO:XXX */
+            break;
         }
     }
 

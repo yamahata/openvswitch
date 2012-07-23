@@ -87,7 +87,12 @@
                                                                     \
     /* Other. */                                                    \
     DEFINE_OFPACT(NOTE,            ofpact_note,          data)      \
-    DEFINE_OFPACT(EXIT,            ofpact_null,          ofpact)
+    DEFINE_OFPACT(EXIT,            ofpact_null,          ofpact)    \
+                                                                    \
+    /* Instructions */                                              \
+    DEFINE_OFPACT(CLEAR_ACTIONS,   ofpact_null,          ofpact)    \
+    DEFINE_OFPACT(WRITE_ACTIONS,   ofpact_null,          ofpact)    \
+    DEFINE_OFPACT(GOTO_TABLE,      ofpact_goto_table,    ofpact)
 
 /* enum ofpact_type, with a member OFPACT_<ENUM> for each action. */
 enum OVS_PACKED_ENUM ofpact_type {
@@ -145,9 +150,11 @@ ofpact_end(const struct ofpact *ofpacts, size_t ofpacts_len)
 
 /* Action structure for each OFPACT_*. */
 
-/* OFPACT_STRIP_VLAN, OFPACT_DEC_TTL, OFPACT_POP_QUEUE, OFPACT_EXIT.
+/* OFPACT_STRIP_VLAN, OFPACT_DEC_TTL, OFPACT_POP_QUEUE, OFPACT_EXIT,
+ * OFPACT_CLEAR_ACTIONS, OFPACT_WRITE_ACTIONS.
  *
- * Used for OFPAT10_STRIP_VLAN, NXAST_DEC_TTL, NXAST_POP_QUEUE, NXAST_EXIT.
+ * Used for OFPAT10_STRIP_VLAN, NXAST_DEC_TTL, NXAST_POP_QUEUE, NXAST_EXIT,
+ * OFPIT11_CLEAR_ACTIONS, OFPIT11_WRITE_ACTIONS.
  *
  * Action structure for actions that do not have any extra data beyond the
  * action type. */
@@ -380,6 +387,14 @@ struct ofpact_note {
     uint8_t data[];
 };
 
+/* OFPACT_GOTO_TABLE
+ *
+ * Used for OFPIT11_GOTO_TABLE */
+struct ofpact_goto_table {
+    struct ofpact ofpact;
+    uint8_t table_id;
+};
+
 /* Converting OpenFlow to ofpacts. */
 enum ofperr ofpacts_pull_openflow10(struct ofpbuf *openflow,
                                     unsigned int actions_len,
@@ -528,5 +543,14 @@ enum {
     N_OVS_INSTRUCTIONS = OVS_INSTRUCTIONS
 #undef DEFINE_INST
 };
+
+static inline bool
+ofpact_is_instruction(const struct ofpact *a)
+{
+    return a->type == OFPACT_CLEAR_ACTIONS
+        || a->type == OFPACT_WRITE_ACTIONS
+        /* TODO:XXX Write-Metadata */
+        || a->type == OFPACT_GOTO_TABLE;
+}
 
 #endif /* ofp-actions.h */

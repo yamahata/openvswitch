@@ -938,6 +938,11 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
     case OFPACT_EXIT:
         return 0;
 
+    case OFPACT_CLEAR_ACTIONS:
+    case OFPACT_WRITE_ACTIONS:
+    case OFPACT_GOTO_TABLE:
+        return 0;
+
     default:
         NOT_REACHED();
     }
@@ -1130,6 +1135,9 @@ ofpact_to_nxast(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_SET_IPV4_DSCP:
     case OFPACT_SET_L4_SRC_PORT:
     case OFPACT_SET_L4_DST_PORT:
+    case OFPACT_CLEAR_ACTIONS:
+    case OFPACT_WRITE_ACTIONS:
+    case OFPACT_GOTO_TABLE:
         NOT_REACHED();
     }
 }
@@ -1217,6 +1225,12 @@ ofpact_to_openflow10(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_SET_L4_DST_PORT:
         ofputil_put_OFPAT10_SET_TP_DST(out)->tp_port
             = htons(ofpact_get_SET_L4_DST_PORT(a)->port);
+        break;
+
+    case OFPACT_CLEAR_ACTIONS:
+    case OFPACT_WRITE_ACTIONS:
+    case OFPACT_GOTO_TABLE:
+        NOT_REACHED();  /* TODO:XXX return error */
         break;
 
     case OFPACT_CONTROLLER:
@@ -1327,6 +1341,18 @@ ofpact_to_openflow11(const struct ofpact *a, struct ofpbuf *out)
             = htons(ofpact_get_SET_L4_DST_PORT(a)->port);
         break;
 
+    case OFPACT_CLEAR_ACTIONS:
+        NOT_REACHED();  /* TODO:XXX */
+        break;
+
+    case OFPACT_WRITE_ACTIONS:
+        NOT_REACHED();  /* TODO:XXX */
+        break;
+
+    case OFPACT_GOTO_TABLE:
+        NOT_REACHED();  /* TODO:XXX */
+        break;
+
     case OFPACT_CONTROLLER:
     case OFPACT_OUTPUT_REG:
     case OFPACT_BUNDLE:
@@ -1421,6 +1447,9 @@ ofpact_outputs_to_port(const struct ofpact *ofpact, uint16_t port)
     case OFPACT_AUTOPATH:
     case OFPACT_NOTE:
     case OFPACT_EXIT:
+    case OFPACT_CLEAR_ACTIONS:
+    case OFPACT_WRITE_ACTIONS:
+    case OFPACT_GOTO_TABLE:
     default:
         return false;
     }
@@ -1664,6 +1693,18 @@ ofpact_format(const struct ofpact *a, struct ds *s)
 
     case OFPACT_EXIT:
         ds_put_cstr(s, "exit");
+        break;
+
+    case OFPACT_CLEAR_ACTIONS:
+        NOT_REACHED();  /* TODO:XXX */
+        break;
+
+    case OFPACT_WRITE_ACTIONS:
+        NOT_REACHED();  /* TODO:XXX */
+        break;
+
+    case OFPACT_GOTO_TABLE:
+        NOT_REACHED();  /* TODO:XXX */
         break;
     }
 }
