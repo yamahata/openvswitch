@@ -1756,17 +1756,21 @@ ofpact_format(const struct ofpact *a, struct ds *s)
         break;
 
     case OFPACT_CLEAR_ACTIONS:
-        NOT_REACHED();  /* TODO:XXX */
-        break;
-
     case OFPACT_WRITE_ACTIONS:
-        NOT_REACHED();  /* TODO:XXX */
-        break;
-
+    /* TODO:XXX write_metadata */
     case OFPACT_GOTO_TABLE:
-        NOT_REACHED();  /* TODO:XXX */
+        NOT_REACHED();
         break;
     }
+}
+
+static void
+ofpacts_format_close_paren(struct ds *string, int n_actions)
+{
+    if (n_actions == 0) {
+        ds_put_cstr(string, "drop");
+    }
+    ds_put_cstr(string, ")");
 }
 
 /* Appends a string representing the 'ofpacts_len' bytes of ofpacts in
@@ -1775,18 +1779,59 @@ void
 ofpacts_format(const struct ofpact *ofpacts, size_t ofpacts_len,
                struct ds *string)
 {
-    ds_put_cstr(string, "actions=");
+    const struct ofpact *a;
+    const char *prefix;
+    bool in_instruction = false;
+    int n_actions = 0;
+
+    prefix = "actions";
+    OFPACT_FOR_EACH (a, ofpacts, ofpacts_len) {
+        if (ofpact_is_instruction(a)) {
+            prefix = "instructions";
+            break;
+        }
+    }
+    ds_put_format(string, "%s=", prefix);
     if (!ofpacts_len) {
         ds_put_cstr(string, "drop");
-    } else {
-        const struct ofpact *a;
+        return;
+    }
 
-        OFPACT_FOR_EACH (a, ofpacts, ofpacts_len) {
-            if (a != ofpacts) {
-                ds_put_cstr(string, ",");
-            }
-            ofpact_format(a, string);
+    OFPACT_FOR_EACH (a, ofpacts, ofpacts_len) {
+        if (a != ofpacts) {
+            ds_put_cstr(string, ",");
         }
+
+        if (in_instruction && ofpact_is_instruction(a)) {
+            ofpacts_format_close_paren(string, n_actions);
+            in_instruction = false;
+            n_actions = 0;
+        }
+
+        if (a->type == OFPACT_CLEAR_ACTIONS) {
+            ds_put_cstr(string, "clear_actions");
+        } else if (a->type == OFPACT_WRITE_ACTIONS) {
+            ds_put_cstr(string, "write_actions(");
+            in_instruction = true;
+            n_actions = 0;
+        /* TODO:XXX write-metadata */
+        } else if (a->type == OFPACT_GOTO_TABLE) {
+            ds_put_format(string, "goto-table:%"PRIu8,
+                          ofpact_get_GOTO_TABLE(a)->table_id);
+        } else {
+            if (!in_instruction) {
+                ds_put_cstr(string, "apply_actions(");
+                in_instruction = true;
+                n_actions = 0;
+            }
+
+            ofpact_format(a, string);
+            n_actions++;
+        }
+    }
+
+    if (in_instruction) {
+        ofpacts_format_close_paren(string, n_actions);
     }
 }
 
