@@ -513,7 +513,7 @@ void ofpact_pad(struct ofpbuf *);
                 "apply_actions")                            \
                                                             \
     DEFINE_INST(OFPIT11_CLEAR_ACTIONS,                      \
-                ofp11_instruction,                false,    \
+                ofp11_instruction_actions,        false,    \
                 "clear_actions")
 
 enum ovs_instruction_type {
