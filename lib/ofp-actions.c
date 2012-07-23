@@ -907,8 +907,7 @@ ofpacts_pull_openflow11_instructions(struct ofpbuf *openflow,
         ogt->table_id = oigt->table_id;
     }
 
-    if (insts[OVSINST_OFPIT11_GOTO_TABLE] ||
-        insts[OVSINST_OFPIT11_WRITE_METADATA] ||
+    if (insts[OVSINST_OFPIT11_WRITE_METADATA] ||
         insts[OVSINST_OFPIT11_WRITE_ACTIONS] ||
         insts[OVSINST_OFPIT11_CLEAR_ACTIONS]) {
         error = OFPERR_OFPBIC_UNSUP_INST;

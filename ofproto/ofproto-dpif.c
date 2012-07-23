@@ -5505,7 +5505,6 @@ do_xlate_action(const struct ofpact *a, struct action_xlate_ctx *ctx)
 
     case OFPACT_RESUBMIT:
         xlate_ofpact_resubmit(ctx, ofpact_get_RESUBMIT(a));
-        break;
 
     case OFPACT_SET_TUNNEL:
         ctx->flow.tun_id = htonll(ofpact_get_SET_TUNNEL(a)->tun_id);
@@ -5578,9 +5577,13 @@ do_xlate_action(const struct ofpact *a, struct action_xlate_ctx *ctx)
         NOT_REACHED();  /* TODO:XXX */
         break;
 
-    case OFPACT_GOTO_TABLE:
-        NOT_REACHED();  /* TODO:XXX */
-        break;
+    case OFPACT_GOTO_TABLE: {
+        struct ofpact_goto_table *ogt = ofpact_get_GOTO_TABLE(a);
+        xlate_table_action(ctx, ctx->flow.in_port,
+                           ogt->table_id == 255? ctx->table_id: ogt->table_id);
+                           /* TODO:XXX remove 255 */
+        return false;
+    }
     }
 
     return true;
