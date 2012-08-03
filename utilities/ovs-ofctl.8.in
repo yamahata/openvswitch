@@ -1448,6 +1448,7 @@ These options currently affect only \fBdump\-flows\fR output.
 .so lib/ssl.man
 .so lib/vlog.man
 .so lib/common.man
+.so lib/ofp-version.man
 .
 .SH "RUNTIME MANAGEMENT COMMANDS"
 \fBovs\-appctl\fR(8) can send commands to a running \fBovs\-ofctl\fR
