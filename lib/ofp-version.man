@@ -1,0 +1,26 @@
+.IP "\fB\-\-allowed\-ofp-versions=\fI[version[,version]...]\fR"
+-\-allowed\-ofp-versions designates the versions that are allowed
+when establishing an OpenFlow session. By default 'OpenFlow10' is used.
+The allowed versions of ovs-vswitchd should be configured using
+the 'openflow-versions' column of the 'other-config' row
+of the Bridges table in ovsdb. The syntax of its value
+is the same as the value of -\-allowed\-ofp-versions.
+.
+.IP
+The known versions are:
+.RS
+.IP \(bu
+\fBOpenFlow10\fR
+.
+.IP \(bu
+\fBOpenFlow11\fR (Experimental Implementation)
+.
+.IP \(bu
+\fBOpenFlow12\fR (Experimental Implementation)
+.RE
+.
+.IP
+N.B: Currently only \fBOpenFlow10\fR is considered to be ready
+for general consumption. The option to enable \fBOpenFlow11\fR and
+\fBOpenFlow12\fR is currently provided for development purposes.
+.
