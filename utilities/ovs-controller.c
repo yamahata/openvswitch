@@ -29,6 +29,7 @@
 #include "daemon.h"
 #include "learning-switch.h"
 #include "ofp-parse.h"
+#include "ofp-version-opt.h"
 #include "ofpbuf.h"
 #include "openflow/openflow.h"
 #include "poll-loop.h"
@@ -115,7 +116,7 @@ main(int argc, char *argv[])
         const char *name = argv[i];
         struct vconn *vconn;
 
-        retval = vconn_open(name, ofputil_get_allowed_versions_default(),
+        retval = vconn_open(name, get_allowed_ofp_versions(),
                             &vconn, DSCP_DEFAULT);
         if (!retval) {
             if (n_switches >= MAX_SWITCHES) {
@@ -125,7 +126,7 @@ main(int argc, char *argv[])
             continue;
         } else if (retval == EAFNOSUPPORT) {
             struct pvconn *pvconn;
-            retval = pvconn_open(name, ofputil_get_allowed_versions_default(),
+            retval = pvconn_open(name, get_allowed_ofp_versions(),
                                  &pvconn, DSCP_DEFAULT);
             if (!retval) {
                 if (n_listeners >= MAX_LISTENERS) {
@@ -205,8 +206,7 @@ new_switch(struct switch_ *sw, struct vconn *vconn)
     struct lswitch_config cfg;
     struct rconn *rconn;
 
-    rconn = rconn_create(60, 0, DSCP_DEFAULT,
-                         ofputil_get_allowed_versions_default());
+    rconn = rconn_create(60, 0, DSCP_DEFAULT, get_allowed_ofp_versions());
     rconn_connect_unreliably(rconn, vconn, NULL);
 
     cfg.mode = (action_normal ? LSW_NORMAL
@@ -252,7 +252,8 @@ parse_options(int argc, char *argv[])
         OPT_WITH_FLOWS,
         OPT_UNIXCTL,
         VLOG_OPTION_ENUMS,
-        DAEMON_OPTION_ENUMS
+        DAEMON_OPTION_ENUMS,
+        OFP_VERSION_OPTION_ENUMS
     };
     static struct option long_options[] = {
         {"hub",         no_argument, NULL, 'H'},
@@ -266,8 +267,8 @@ parse_options(int argc, char *argv[])
         {"with-flows",  required_argument, NULL, OPT_WITH_FLOWS},
         {"unixctl",     required_argument, NULL, OPT_UNIXCTL},
         {"help",        no_argument, NULL, 'h'},
-        {"version",     no_argument, NULL, 'V'},
         DAEMON_LONG_OPTIONS,
+        OFP_VERSION_LONG_OPTIONS,
         VLOG_LONG_OPTIONS,
         STREAM_SSL_LONG_OPTIONS,
         {"peer-ca-cert", required_argument, NULL, OPT_PEER_CA_CERT},
@@ -337,11 +338,8 @@ parse_options(int argc, char *argv[])
         case 'h':
             usage();
 
-        case 'V':
-            ovs_print_version(OFP10_VERSION, OFP10_VERSION);
-            exit(EXIT_SUCCESS);
-
         VLOG_OPTION_HANDLERS
+        OFP_VERSION_OPTION_HANDLERS
         DAEMON_OPTION_HANDLERS
 
         STREAM_SSL_OPTION_HANDLERS
@@ -383,6 +381,7 @@ usage(void)
            program_name, program_name);
     vconn_usage(true, true, false);
     daemon_usage();
+    ofp_version_usage();
     vlog_usage();
     printf("\nOther options:\n"
            "  -H, --hub               act as hub instead of learning switch\n"
