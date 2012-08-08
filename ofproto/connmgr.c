@@ -296,7 +296,9 @@ connmgr_run(struct connmgr *mgr,
             char *name;
 
             /* Passing default value for creation of the rconn */
-            rconn = rconn_create(ofservice->probe_interval, 0, ofservice->dscp);
+            rconn = rconn_create(ofservice->probe_interval, 0,
+                                 ofservice->dscp,
+                                 ofputil_get_allowed_versions_default());
             name = ofconn_make_name(mgr, vconn_get_name(vconn));
             rconn_connect_unreliably(rconn, vconn, name);
             free(name);
@@ -616,7 +618,10 @@ add_controller(struct connmgr *mgr, const char *target, uint8_t dscp)
     char *name = ofconn_make_name(mgr, target);
     struct ofconn *ofconn;
 
-    ofconn = ofconn_create(mgr, rconn_create(5, 8, dscp), OFCONN_PRIMARY, true);
+    ofconn = ofconn_create(mgr,
+                           rconn_create(5, 8, dscp,
+                                        ofputil_get_allowed_versions_default()),
+                           OFCONN_PRIMARY, true);
     ofconn->pktbuf = pktbuf_create();
     rconn_connect(ofconn->rconn, target, name);
     hmap_insert(&mgr->controllers, &ofconn->hmap_node, hash_string(target, 0));

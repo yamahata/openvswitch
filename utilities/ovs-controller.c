@@ -205,7 +205,8 @@ new_switch(struct switch_ *sw, struct vconn *vconn)
     struct lswitch_config cfg;
     struct rconn *rconn;
 
-    rconn = rconn_create(60, 0, DSCP_DEFAULT);
+    rconn = rconn_create(60, 0, DSCP_DEFAULT,
+                         ofputil_get_allowed_versions_default());
     rconn_connect_unreliably(rconn, vconn, NULL);
 
     cfg.mode = (action_normal ? LSW_NORMAL
