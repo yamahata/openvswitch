@@ -2662,6 +2662,8 @@ bridge_configure_remotes(struct bridge *br,
     size_t n_ocs;
     size_t i;
 
+    uint32_t allowed_versions = ofputil_get_allowed_versions_default();
+
     /* Check if we should disable in-band control on this bridge. */
     disable_in_band = smap_get_bool(&br->cfg->other_config, "disable-in-band",
                                     false);
@@ -2719,7 +2721,7 @@ bridge_configure_remotes(struct bridge *br,
         n_ocs++;
     }
 
-    ofproto_set_controllers(br->ofproto, ocs, n_ocs);
+    ofproto_set_controllers(br->ofproto, ocs, n_ocs, allowed_versions);
     free(ocs[0].target); /* From bridge_ofproto_controller_for_mgmt(). */
     free(ocs);
 
@@ -2735,7 +2737,7 @@ bridge_configure_remotes(struct bridge *br,
         struct shash snoops;
         struct ofproto_name_and_versions nv = {
             .name = xasprintf("punix:%s/%s.snoop", ovs_rundir(), br->name),
-            .allowed_versions = ofputil_get_allowed_versions_default(),
+            .allowed_versions = allowed_versions,
         };
 
         shash_init(&snoops);
