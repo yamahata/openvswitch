@@ -1796,7 +1796,7 @@ AT_CHECK([ovs-ofctl -F openflow10 add-flow dummy tun_id=123,actions=drop],
   [1], [], [ovs-ofctl: none of the usable flow formats (NXM) is among the allowed flow formats (OpenFlow10)
 ])
 AT_CHECK([ovs-ofctl -F openflow10 add-flow dummy metadata=123,actions=drop],
-  [1], [], [ovs-ofctl: none of the usable flow formats (NXM) is among the allowed flow formats (OpenFlow10)
+  [1], [], [ovs-ofctl: none of the usable flow formats (NXM,OpenFlow12) is among the allowed flow formats (OpenFlow10)
 ])
 AT_CLEANUP
 

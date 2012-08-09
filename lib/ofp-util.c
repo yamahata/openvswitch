@@ -977,27 +977,27 @@ ofputil_usable_protocols(const struct match *match)
     /* NXM and OF1.1+ supports bitwise matching on ethernet addresses. */
     if (!eth_mask_is_exact(wc->masks.dl_src)
         && !eth_addr_is_zero(wc->masks.dl_src)) {
-        return OFPUTIL_P_NXM_ANY;
+        return OFPUTIL_P_NXM_ANY_OR_OF11_PLUS;
     }
     if (!eth_mask_is_exact(wc->masks.dl_dst)
         && !eth_addr_is_zero(wc->masks.dl_dst)) {
-        return OFPUTIL_P_NXM_ANY;
+        return OFPUTIL_P_NXM_ANY_OR_OF11_PLUS;
     }
 
     /* NXM and OF1.1+ support matching metadata. */
     if (wc->masks.metadata != htonll(0)) {
-        return OFPUTIL_P_NXM_ANY;
+        return OFPUTIL_P_NXM_ANY_OR_OF11_PLUS;
     }
 
-    /* Only NXM supports matching ARP hardware addresses. */
+    /* NXM and OF1.2 support matching ARP hardware addresses. */
     if (!eth_addr_is_zero(wc->masks.arp_sha) ||
         !eth_addr_is_zero(wc->masks.arp_tha)) {
-        return OFPUTIL_P_NXM_ANY;
+        return OFPUTIL_P_NXM_ANY_OR_OF12;
     }
 
-    /* Only NXM supports matching IPv6 traffic. */
+    /* NXM and OF1.2 support  matching IPv6 traffic. */
     if (match->flow.dl_type == htons(ETH_TYPE_IPV6)) {
-        return OFPUTIL_P_NXM_ANY;
+        return OFPUTIL_P_NXM_ANY_OR_OF12;
     }
 
     /* Only NXM supports matching registers. */
@@ -1015,14 +1015,14 @@ ofputil_usable_protocols(const struct match *match)
         return OFPUTIL_P_NXM_ANY;
     }
 
-    /* Only NXM supports matching IPv6 flow label. */
+    /* NXM and OF1.2 support matching IPv6 flow label. */
     if (wc->masks.ipv6_label) {
-        return OFPUTIL_P_NXM_ANY;
+        return OFPUTIL_P_NXM_ANY_OR_OF12;
     }
 
-    /* Only NXM supports matching IP ECN bits. */
+    /* NXM and OF1.2 support matching IP ECN bits. */
     if (wc->masks.nw_tos & IP_ECN_MASK) {
-        return OFPUTIL_P_NXM_ANY;
+        return OFPUTIL_P_NXM_ANY_OR_OF12;
     }
 
     /* Only NXM supports matching IP TTL/hop limit. */
@@ -1030,9 +1030,9 @@ ofputil_usable_protocols(const struct match *match)
         return OFPUTIL_P_NXM_ANY;
     }
 
-    /* Only NXM supports non-CIDR IPv4 address masks. */
+    /* NXM and OF1.1+ support non-CIDR IPv4 address masks. */
     if (!ip_is_cidr(wc->masks.nw_src) || !ip_is_cidr(wc->masks.nw_dst)) {
-        return OFPUTIL_P_NXM_ANY;
+        return OFPUTIL_P_NXM_ANY_OR_OF11_PLUS;
     }
 
     /* Only NXM supports bitwise matching on transport port. */
@@ -1662,9 +1662,9 @@ ofputil_flow_mod_usable_protocols(const struct ofputil_flow_mod *fms,
             usable_protocols &= OFPUTIL_P_TID;
         }
 
-        /* Matching of the cookie is only supported through NXM. */
+        /* Matching of the cookie is only supporte through NXM and OF1.1+. */
         if (fm->cookie_mask != htonll(0)) {
-            usable_protocols &= OFPUTIL_P_NXM_ANY;
+            usable_protocols &= OFPUTIL_P_NXM_ANY_OR_OF11_PLUS;
         }
     }
     assert(usable_protocols);
