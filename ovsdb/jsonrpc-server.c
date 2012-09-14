@@ -99,6 +99,7 @@ struct ovsdb_jsonrpc_remote {
     struct ovsdb_jsonrpc_server *server;
     struct pstream *listener;   /* Listener, if passive. */
     struct list sessions;       /* List of "struct ovsdb_jsonrpc_session"s. */
+    uint8_t dscp;
 };
 
 static struct ovsdb_jsonrpc_remote *ovsdb_jsonrpc_server_add_remote(
@@ -151,6 +152,7 @@ ovsdb_jsonrpc_default_options(const char *target)
     options->probe_interval = (stream_or_pstream_needs_probes(target)
                                ? RECONNECT_DEFAULT_PROBE_INTERVAL
                                : 0);
+    options->dscp = DSCP_DEFAULT;
     return options;
 }
 
@@ -206,6 +208,7 @@ ovsdb_jsonrpc_server_add_remote(struct ovsdb_jsonrpc_server *svr,
     remote->server = svr;
     remote->listener = listener;
     list_init(&remote->sessions);
+    remote->dscp = options->dscp;
     shash_add(&svr->remotes, name, remote);
 
     if (!listener) {
@@ -282,7 +285,8 @@ ovsdb_jsonrpc_server_run(struct ovsdb_jsonrpc_server *svr)
             error = pstream_accept(remote->listener, &stream);
             if (!error) {
                 struct jsonrpc_session *js;
-                js = jsonrpc_session_open_unreliably(jsonrpc_open(stream));
+                js = jsonrpc_session_open_unreliably(jsonrpc_open(stream),
+                                                     remote->dscp);
                 ovsdb_jsonrpc_session_create(remote, js);
             } else if (error != EAGAIN) {
                 VLOG_WARN_RL(&rl, "%s: accept failed: %s",
@@ -518,6 +522,21 @@ ovsdb_jsonrpc_session_set_all_options(
 {
     struct ovsdb_jsonrpc_session *s;
 
+    if (remote->listener) {
+        int error;
+        error = pstream_set_dscp(remote->listener, options->dscp);
+        if (error) {
+            VLOG_ERR("%s: set_dscp failed %s",
+                     pstream_get_name(remote->listener), strerror(error));
+        } else {
+            remote->dscp = options->dscp;
+        }
+        /*
+         * TODO:XXX race window between setting dscp to listening socket
+         * and accepting socket. Accepted socket may have old dscp value.
+         * Ignore this race window for now.
+         */
+    }
     LIST_FOR_EACH (s, node, &remote->sessions) {
         ovsdb_jsonrpc_session_set_options(s, options);
     }
