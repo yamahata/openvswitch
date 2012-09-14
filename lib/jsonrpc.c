@@ -791,7 +791,7 @@ jsonrpc_session_open(const char *name)
  * On the assumption that such connections are likely to be short-lived
  * (e.g. from ovs-vsctl), informational logging for them is suppressed. */
 struct jsonrpc_session *
-jsonrpc_session_open_unreliably(struct jsonrpc *jsonrpc)
+jsonrpc_session_open_unreliably(struct jsonrpc *jsonrpc, uint8_t dscp)
 {
     struct jsonrpc_session *s;
 
@@ -801,7 +801,7 @@ jsonrpc_session_open_unreliably(struct jsonrpc *jsonrpc)
     reconnect_set_name(s->reconnect, jsonrpc_get_name(jsonrpc));
     reconnect_set_max_tries(s->reconnect, 0);
     reconnect_connected(s->reconnect, time_msec());
-    s->dscp = 0;
+    s->dscp = dscp;
     s->rpc = jsonrpc;
     s->stream = NULL;
     s->pstream = NULL;

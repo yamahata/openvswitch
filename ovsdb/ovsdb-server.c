@@ -469,7 +469,6 @@ add_manager_options(struct shash *remotes, const struct ovsdb_row *row)
         options->probe_interval = probe_interval;
     }
 
-    options->dscp = DSCP_DEFAULT;
     dscp_string = read_map_string_column(row, "other_config", "dscp");
     if (dscp_string) {
         int dscp = atoi(dscp_string);
