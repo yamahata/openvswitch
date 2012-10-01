@@ -65,6 +65,8 @@ COVERAGE_DEFINE(bridge_reconfigure);
 struct if_cfg {
     struct hmap_node hmap_node;         /* Node in bridge's if_cfg_todo. */
     const struct ovsrec_interface *cfg; /* Interface record. */
+    int64_t ofport;                     /* requested ofport. OFPP_NONE means
+                                           auto-allocate ofport */
     const struct ovsrec_port *parent;   /* Parent port record. */
 };
 
@@ -225,7 +227,8 @@ static bool mirror_configure(struct mirror *);
 static void mirror_refresh_stats(struct mirror *);
 
 static void iface_configure_lacp(struct iface *, struct lacp_slave_settings *);
-static bool iface_create(struct bridge *, struct if_cfg *, int ofp_port);
+static bool iface_create(struct bridge *, struct if_cfg *,
+                         int ofp_port, bool allocate_port);
 static const char *iface_get_type(const struct ovsrec_interface *,
                                   const struct ovsrec_bridge *);
 static void iface_destroy(struct iface *);
@@ -496,7 +499,7 @@ bridge_reconfigure_ofp(void)
         struct if_cfg *if_cfg, *next;
 
         HMAP_FOR_EACH_SAFE (if_cfg, next, hmap_node, &br->if_cfg_todo) {
-            iface_create(br, if_cfg, -1);
+            iface_create(br, if_cfg, if_cfg->ofport, true);
             time_refresh();
             if (time_msec() >= deadline) {
                 return false;
@@ -1206,9 +1209,14 @@ bridge_refresh_one_ofp_port(struct bridge *br,
          * and add it.  If that's successful, we'll keep it.  Otherwise, we'll
          * delete it and later try to re-add it. */
         struct if_cfg *if_cfg = if_cfg_lookup(br, name);
+        bool allocate_port = false;
+        if (ofp_port < 0) {
+            ofp_port = OFPP_NONE;
+            allocate_port = true;
+        }
         return (if_cfg
                 && !strcmp(type, iface_get_type(if_cfg->cfg, br->cfg))
-                && iface_create(br, if_cfg, ofp_port));
+                && iface_create(br, if_cfg, ofp_port, allocate_port));
     }
 }
 
@@ -1261,8 +1269,8 @@ bridge_refresh_ofp_port(struct bridge *br)
     }
 }
 
-/* Opens a network device for 'iface_cfg' and configures it.  If '*ofp_portp'
- * is negative, adds the network device to br->ofproto and stores the OpenFlow
+/* Opens a network device for 'iface_cfg' and configures it.  If allocate_port
+ * is true, adds the network device to br->ofproto and stores the OpenFlow
  * port number in '*ofp_portp'; otherwise leaves br->ofproto and '*ofp_portp'
  * untouched.
  *
@@ -1272,7 +1280,8 @@ static int
 iface_do_create(const struct bridge *br,
                 const struct ovsrec_interface *iface_cfg,
                 const struct ovsrec_port *port_cfg,
-                int *ofp_portp, struct netdev **netdevp)
+                int *ofp_portp, bool allocate_port,
+                struct netdev **netdevp)
 {
     struct netdev *netdev;
     int error;
@@ -1290,9 +1299,8 @@ iface_do_create(const struct bridge *br,
         goto error;
     }
 
-    if (*ofp_portp < 0) {
-        uint16_t ofp_port;
-
+    if (allocate_port) {
+        uint16_t ofp_port = *ofp_portp;
         error = ofproto_port_add(br->ofproto, netdev, &ofp_port);
         if (error) {
             goto error;
@@ -1320,13 +1328,14 @@ error:
 }
 
 /* Creates a new iface on 'br' based on 'if_cfg'.  The new iface has OpenFlow
- * port number 'ofp_port'.  If ofp_port is negative, an OpenFlow port is
+ * port number 'ofp_port'. If create is true, an OpenFlow port is
  * automatically allocated for the iface.  Takes ownership of and
  * deallocates 'if_cfg'.
  *
  * Return true if an iface is successfully created, false otherwise. */
 static bool
-iface_create(struct bridge *br, struct if_cfg *if_cfg, int ofp_port)
+iface_create(struct bridge *br, struct if_cfg *if_cfg,
+             int ofp_port, bool allocate_port)
 {
     const struct ovsrec_interface *iface_cfg = if_cfg->cfg;
     const struct ovsrec_port *port_cfg = if_cfg->parent;
@@ -1348,7 +1357,8 @@ iface_create(struct bridge *br, struct if_cfg *if_cfg, int ofp_port)
      * additions and deletions are cheaper, these calls should be removed. */
     bridge_run_fast();
     assert(!iface_lookup(br, iface_cfg->name));
-    error = iface_do_create(br, iface_cfg, port_cfg, &ofp_port, &netdev);
+    error = iface_do_create(br, iface_cfg, port_cfg, &ofp_port, allocate_port,
+                            &netdev);
     bridge_run_fast();
     if (error) {
         iface_clear_db_record(iface_cfg);
@@ -2451,6 +2461,11 @@ bridge_queue_if_cfg(struct bridge *br,
 
     if_cfg->cfg = cfg;
     if_cfg->parent = parent;
+    if_cfg->ofport = OFPP_NONE;
+    if (cfg->n_ofport > 0 &&
+        (0 <= cfg->ofport[0] && cfg->ofport[0] <= OFPP_MAX)) {
+        if_cfg->ofport = cfg->ofport[0];
+    }
     hmap_insert(&br->if_cfg_todo, &if_cfg->hmap_node,
                 hash_string(if_cfg->cfg->name, 0));
 }

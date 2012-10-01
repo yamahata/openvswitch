@@ -1096,3 +1096,32 @@ AT_CHECK([RUN_OVS_VSCTL(
    [-- list Queue])], [0], [], [], [OVS_VSCTL_CLEANUP])
 OVS_VSCTL_CLEANUP
 AT_CLEANUP
+
+dnl ----------------------------------------------------------------------
+AT_BANNER([ovs-vsctl unit tests --- add-port with port no specified])
+
+AT_SETUP([add-br a, add-port a a1, set Interface a ofport=10])
+AT_KEYWORDS([ovs-vsctl port-no])
+OVS_VSCTL_SETUP
+AT_CHECK([RUN_OVS_VSCTL([add-br a])], [0], [], [], [OVS_VSCTL_CLEANUP])
+CHECK_BRIDGES([a, a, 0])
+AT_CHECK([RUN_OVS_VSCTL([add-port a a0])], [0], [], [], [OVS_VSCTL_CLEANUP])
+CHECK_BRIDGES([a, a, 0])
+CHECK_PORTS([a], [a0])
+CHECK_IFACES([a], [a0])
+AT_CHECK([RUN_OVS_VSCTL(get Interface a0 ofport)], [0], [[[]
+]], [], [OVS_VSCTL_CLEANUP])
+AT_CHECK([RUN_OVS_VSCTL([del-port a a0])], [0], [], [], [OVS_VSCTL_CLEANUP])
+
+AT_CHECK([RUN_OVS_VSCTL_TOGETHER(
+   [add-port a a1],
+   [set Interface a1 ofport=10])], [0], [
+
+], [], [OVS_VSCTL_CLEANUP])
+CHECK_PORTS([a], [a1])
+CHECK_IFACES([a], [a1])
+AT_CHECK([RUN_OVS_VSCTL(get Interface a1 ofport)], [0], [10
+], [], [OVS_VSCTL_CLEANUP])
+AT_CHECK([RUN_OVS_VSCTL([del-port a a1])], [0], [], [], [OVS_VSCTL_CLEANUP])
+OVS_VSCTL_CLEANUP
+AT_CLEANUP

@@ -1353,7 +1353,7 @@ int
 ofproto_port_add(struct ofproto *ofproto, struct netdev *netdev,
                  uint16_t *ofp_portp)
 {
-    uint16_t ofp_port;
+    uint16_t ofp_port = ofp_portp ? *ofp_portp : OFPP_NONE;
     int error;
 
     error = ofproto->ofproto_class->port_add(ofproto, netdev, &ofp_port);
