@@ -2171,12 +2171,20 @@ update_port_config(struct ofport *port,
 
     toggle = (config ^ port->pp.config) & mask;
     if (toggle & OFPUTIL_PC_PORT_DOWN) {
+        int error;
         if (config & OFPUTIL_PC_PORT_DOWN) {
-            netdev_turn_flags_off(port->netdev, NETDEV_UP, true);
+            error = netdev_turn_flags_off(port->netdev, NETDEV_UP, true);
         } else {
-            netdev_turn_flags_on(port->netdev, NETDEV_UP, true);
+            error = netdev_turn_flags_on(port->netdev, NETDEV_UP, true);
         }
-        toggle &= ~OFPUTIL_PC_PORT_DOWN;
+        if (error) {
+            char name[sizeof port->pp.name];
+            ovs_strlcpy(name, port->pp.name, sizeof port->pp.name);
+            VLOG_WARN("can't %s port %s %s",
+                      config & OFPUTIL_PC_PORT_DOWN ? "DOWN" : "UP",
+                      name, strerror(error));
+            toggle &= ~OFPUTIL_PC_PORT_DOWN;
+        }
     }
 
     port->pp.config ^= toggle;
