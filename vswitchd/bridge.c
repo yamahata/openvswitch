@@ -1315,7 +1315,10 @@ iface_do_create(const struct bridge *br,
     }
 
     if (port_cfg->vlan_mode && !strcmp(port_cfg->vlan_mode, "splinter")) {
-        netdev_turn_flags_on(netdev, NETDEV_UP, true);
+        error = netdev_turn_flags_on(netdev, NETDEV_UP, true);
+        if (error) {
+            goto error;
+        }
     }
 
     *netdevp = netdev;
@@ -2608,6 +2611,7 @@ bridge_configure_local_iface_netdev(struct bridge *br,
 
     struct iface *local_iface;
     struct in_addr ip;
+    int error;
 
     /* If there's no local interface or no IP address, give up. */
     local_iface = iface_from_ofp_port(br, OFPP_LOCAL);
@@ -2617,7 +2621,10 @@ bridge_configure_local_iface_netdev(struct bridge *br,
 
     /* Bring up the local interface. */
     netdev = local_iface->netdev;
-    netdev_turn_flags_on(netdev, NETDEV_UP, true);
+    error = netdev_turn_flags_on(netdev, NETDEV_UP, true);
+    if (error) {
+        VLOG_WARN("bridge %s: can up netdev %s", br->name, strerror(error));
+    }
 
     /* Configure the IP address and netmask. */
     if (!c->local_netmask
