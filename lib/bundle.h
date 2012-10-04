@@ -39,8 +39,7 @@ uint16_t bundle_execute(const struct ofpact_bundle *, const struct flow *,
                         void *aux);
 enum ofperr bundle_from_openflow(const struct nx_action_bundle *,
                                  struct ofpbuf *ofpact);
-enum ofperr bundle_check(const struct ofpact_bundle *, int max_ports,
-                         const struct flow *);
+enum ofperr bundle_check(const struct ofpact_bundle *, int max_ports);
 void bundle_to_nxast(const struct ofpact_bundle *, struct ofpbuf *of10);
 void bundle_parse(const char *, struct ofpbuf *ofpacts);
 void bundle_parse_load(const char *, struct ofpbuf *ofpacts);

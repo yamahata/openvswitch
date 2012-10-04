@@ -173,20 +173,19 @@ bundle_from_openflow(const struct nx_action_bundle *nab,
     ofpact_update_len(ofpacts, &bundle->ofpact);
 
     if (!error) {
-        error = bundle_check(bundle, OFPP_MAX, NULL);
+        error = bundle_check(bundle, OFPP_MAX);
     }
     return error;
 }
 
 enum ofperr
-bundle_check(const struct ofpact_bundle *bundle, int max_ports,
-             const struct flow *flow)
+bundle_check(const struct ofpact_bundle *bundle, int max_ports)
 {
     static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 5);
     size_t i;
 
     if (bundle->dst.field) {
-        enum ofperr error = mf_check_dst(&bundle->dst, flow);
+        enum ofperr error = mf_check_dst(&bundle->dst);
         if (error) {
             return error;
         }

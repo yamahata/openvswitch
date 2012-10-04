@@ -451,7 +451,7 @@ enum ofperr ofpacts_pull_openflow11_instructions(struct ofpbuf *openflow,
                                                  unsigned int instructions_len,
                                                  struct ofpbuf *ofpacts);
 enum ofperr ofpacts_check(const struct ofpact[], size_t ofpacts_len,
-                          const struct flow *, int max_ports);
+                          int max_ports);
 enum ofperr ofpacts_verify(const struct ofpact ofpacts[], size_t ofpacts_len);
 
 /* Converting ofpacts to OpenFlow. */

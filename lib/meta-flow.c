@@ -1670,8 +1670,7 @@ mf_set(const struct mf_field *mf,
 }
 
 static enum ofperr
-mf_check__(const struct mf_subfield *sf, const struct flow *flow,
-           const char *type)
+mf_check__(const struct mf_subfield *sf, const char *type)
 {
     if (!sf->field) {
         VLOG_WARN_RL(&rl, "unknown %s field", type);
@@ -1684,9 +1683,6 @@ mf_check__(const struct mf_subfield *sf, const struct flow *flow,
         VLOG_WARN_RL(&rl, "bit offset %d and width %d exceeds %d-bit width "
                      "of %s field %s", sf->ofs, sf->n_bits,
                      sf->field->n_bits, type, sf->field->name);
-    } else if (flow && !mf_are_prereqs_ok(sf->field, flow)) {
-        VLOG_WARN_RL(&rl, "%s field %s lacks correct prerequisites",
-                     type, sf->field->name);
     } else {
         return 0;
     }
@@ -1698,18 +1694,18 @@ mf_check__(const struct mf_subfield *sf, const struct flow *flow,
  * 0 if so, otherwise an OpenFlow error code (e.g. as returned by
  * ofp_mkerr()).  */
 enum ofperr
-mf_check_src(const struct mf_subfield *sf, const struct flow *flow)
+mf_check_src(const struct mf_subfield *sf)
 {
-    return mf_check__(sf, flow, "source");
+    return mf_check__(sf, "source");
 }
 
 /* Checks whether 'sf' is valid for writing a subfield into 'flow'.  Returns 0
  * if so, otherwise an OpenFlow error code (e.g. as returned by
  * ofp_mkerr()). */
 enum ofperr
-mf_check_dst(const struct mf_subfield *sf, const struct flow *flow)
+mf_check_dst(const struct mf_subfield *sf)
 {
-    int error = mf_check__(sf, flow, "destination");
+    int error = mf_check__(sf, "destination");
     if (!error && !sf->field->writable) {
         VLOG_WARN_RL(&rl, "destination field %s is not writable",
                      sf->field->name);

@@ -1068,7 +1068,7 @@ nxm_reg_move_from_openflow(const struct nx_action_reg_move *narm,
     move->dst.ofs = ntohs(narm->dst_ofs);
     move->dst.n_bits = ntohs(narm->n_bits);
 
-    return nxm_reg_move_check(move, NULL);
+    return nxm_reg_move_check(move);
 }
 
 enum ofperr
@@ -1090,7 +1090,7 @@ nxm_reg_load_from_openflow(const struct nx_action_reg_load *narl,
         return OFPERR_OFPBAC_BAD_ARGUMENT;
     }
 
-    return nxm_reg_load_check(load, NULL);
+    return nxm_reg_load_check(load);
 }
 
 enum ofperr
@@ -1122,26 +1122,26 @@ nxm_reg_load_from_openflow12_set_field(
     load = ofpact_put_REG_LOAD(ofpacts);
     ofpact_set_field_init(load, mf, oasf + 1);
 
-    return nxm_reg_load_check(load, NULL);
+    return nxm_reg_load_check(load);
 }
 
 enum ofperr
-nxm_reg_move_check(const struct ofpact_reg_move *move, const struct flow *flow)
+nxm_reg_move_check(const struct ofpact_reg_move *move)
 {
     enum ofperr error;
 
-    error = mf_check_src(&move->src, flow);
+    error = mf_check_src(&move->src);
     if (error) {
         return error;
     }
 
-    return mf_check_dst(&move->dst, NULL);
+    return mf_check_dst(&move->dst);
 }
 
 enum ofperr
-nxm_reg_load_check(const struct ofpact_reg_load *load, const struct flow *flow)
+nxm_reg_load_check(const struct ofpact_reg_load *load)
 {
-    return mf_check_dst(&load->dst, flow);
+    return mf_check_dst(&load->dst);
 }
 
 void

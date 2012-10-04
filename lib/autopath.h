@@ -33,8 +33,7 @@ void autopath_parse(struct ofpact_autopath *, const char *);
 
 enum ofperr autopath_from_openflow(const struct nx_action_autopath *,
                                    struct ofpact_autopath *);
-enum ofperr autopath_check(const struct ofpact_autopath *,
-                           const struct flow *);
+enum ofperr autopath_check(const struct ofpact_autopath *);
 void autopath_to_nxast(const struct ofpact_autopath *,
                        struct ofpbuf *openflow);
 

@@ -109,7 +109,7 @@ output_reg_from_openflow(const struct nx_action_output_reg *naor,
     output_reg->src.n_bits = nxm_decode_n_bits(naor->ofs_nbits);
     output_reg->max_len = ntohs(naor->max_len);
 
-    return mf_check_src(&output_reg->src, NULL);
+    return mf_check_src(&output_reg->src);
 }
 
 static void
@@ -1045,7 +1045,7 @@ exit:
 }
 
 static enum ofperr
-ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
+ofpact_check__(const struct ofpact *a, int max_ports)
 {
     const struct ofpact_enqueue *enqueue;
 
@@ -1066,10 +1066,10 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
         return 0;
 
     case OFPACT_OUTPUT_REG:
-        return mf_check_src(&ofpact_get_OUTPUT_REG(a)->src, flow);
+        return mf_check_src(&ofpact_get_OUTPUT_REG(a)->src);
 
     case OFPACT_BUNDLE:
-        return bundle_check(ofpact_get_BUNDLE(a), max_ports, flow);
+        return bundle_check(ofpact_get_BUNDLE(a), max_ports);
 
     case OFPACT_SET_VLAN_VID:
     case OFPACT_SET_VLAN_PCP:
@@ -1085,10 +1085,10 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
         return 0;
 
     case OFPACT_REG_MOVE:
-        return nxm_reg_move_check(ofpact_get_REG_MOVE(a), flow);
+        return nxm_reg_move_check(ofpact_get_REG_MOVE(a));
 
     case OFPACT_REG_LOAD:
-        return nxm_reg_load_check(ofpact_get_REG_LOAD(a), flow);
+        return nxm_reg_load_check(ofpact_get_REG_LOAD(a));
 
     case OFPACT_DEC_TTL:
     case OFPACT_SET_TUNNEL:
@@ -1099,13 +1099,13 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
         return 0;
 
     case OFPACT_LEARN:
-        return learn_check(ofpact_get_LEARN(a), flow);
+        return learn_check(ofpact_get_LEARN(a));
 
     case OFPACT_MULTIPATH:
-        return multipath_check(ofpact_get_MULTIPATH(a), flow);
+        return multipath_check(ofpact_get_MULTIPATH(a));
 
     case OFPACT_AUTOPATH:
-        return autopath_check(ofpact_get_AUTOPATH(a), flow);
+        return autopath_check(ofpact_get_AUTOPATH(a));
 
     case OFPACT_NOTE:
     case OFPACT_EXIT:
@@ -1125,13 +1125,12 @@ ofpact_check__(const struct ofpact *a, const struct flow *flow, int max_ports)
  * appropriate for a packet with the prerequisites satisfied by 'flow' in a
  * switch with no more than 'max_ports' ports. */
 enum ofperr
-ofpacts_check(const struct ofpact ofpacts[], size_t ofpacts_len,
-              const struct flow *flow, int max_ports)
+ofpacts_check(const struct ofpact ofpacts[], size_t ofpacts_len, int max_ports)
 {
     const struct ofpact *a;
 
     OFPACT_FOR_EACH (a, ofpacts, ofpacts_len) {
-        enum ofperr error = ofpact_check__(a, flow, max_ports);
+        enum ofperr error = ofpact_check__(a, max_ports);
         if (error) {
             return error;
         }

@@ -33,8 +33,7 @@ struct ofpbuf;
 
 enum ofperr multipath_from_openflow(const struct nx_action_multipath *,
                                     struct ofpact_multipath *);
-enum ofperr multipath_check(const struct ofpact_multipath *,
-                            const struct flow *);
+enum ofperr multipath_check(const struct ofpact_multipath *);
 void multipath_to_nxast(const struct ofpact_multipath *,
                         struct ofpbuf *openflow);
 

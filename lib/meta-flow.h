@@ -332,8 +332,8 @@ void mf_format_subfield(const struct mf_subfield *, struct ds *);
 char *mf_parse_subfield__(struct mf_subfield *sf, const char **s);
 const char *mf_parse_subfield(struct mf_subfield *, const char *);
 
-enum ofperr mf_check_src(const struct mf_subfield *, const struct flow *);
-enum ofperr mf_check_dst(const struct mf_subfield *, const struct flow *);
+enum ofperr mf_check_src(const struct mf_subfield *);
+enum ofperr mf_check_dst(const struct mf_subfield *);
 
 /* Parsing and formatting. */
 char *mf_parse(const struct mf_field *, const char *,

@@ -33,7 +33,7 @@ struct nx_action_learn;
 
 enum ofperr learn_from_openflow(const struct nx_action_learn *,
                                 struct ofpbuf *ofpacts);
-enum ofperr learn_check(const struct ofpact_learn *, const struct flow *);
+enum ofperr learn_check(const struct ofpact_learn *);
 void learn_to_nxast(const struct ofpact_learn *, struct ofpbuf *openflow);
 
 void learn_execute(const struct ofpact_learn *, const struct flow *,

@@ -68,16 +68,15 @@ multipath_from_openflow(const struct nx_action_multipath *nam,
         return OFPERR_OFPBAC_BAD_ARGUMENT;
     }
 
-    return multipath_check(mp, NULL);
+    return multipath_check(mp);
 }
 
 /* Checks that 'mp' is valid on flow.  Returns 0 if it is valid, otherwise an
  * OFPERR_*. */
 enum ofperr
-multipath_check(const struct ofpact_multipath *mp,
-                const struct flow *flow)
+multipath_check(const struct ofpact_multipath *mp)
 {
-    return mf_check_dst(&mp->dst, flow);
+    return mf_check_dst(&mp->dst);
 }
 
 /* Converts 'mp' into an OpenFlow NXAST_MULTIPATH action, which it appends to

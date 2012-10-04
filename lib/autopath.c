@@ -81,16 +81,16 @@ autopath_from_openflow(const struct nx_action_autopath *nap,
         return OFPERR_OFPBAC_BAD_ARGUMENT;
     }
 
-    return autopath_check(autopath, NULL);
+    return autopath_check(autopath);
 }
 
 enum ofperr
-autopath_check(const struct ofpact_autopath *autopath, const struct flow *flow)
+autopath_check(const struct ofpact_autopath *autopath)
 {
     VLOG_WARN_ONCE("The autopath action is deprecated and may be removed in"
                    " February 2013.  Please email dev@openvswitch.org with"
                    " concerns.");
-    return mf_check_dst(&autopath->dst, flow);
+    return mf_check_dst(&autopath->dst);
 }
 
 void

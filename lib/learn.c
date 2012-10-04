@@ -168,7 +168,7 @@ learn_from_openflow(const struct nx_action_learn *nal, struct ofpbuf *ofpacts)
 /* Checks that 'learn' is a valid action on 'flow'.  Returns 0 if it is valid,
  * otherwise an OFPERR_*. */
 enum ofperr
-learn_check(const struct ofpact_learn *learn, const struct flow *flow)
+learn_check(const struct ofpact_learn *learn)
 {
     const struct ofpact_learn_spec *spec;
     struct match match;
@@ -179,7 +179,7 @@ learn_check(const struct ofpact_learn *learn, const struct flow *flow)
 
         /* Check the source. */
         if (spec->src_type == NX_LEARN_SRC_FIELD) {
-            error = mf_check_src(&spec->src, flow);
+            error = mf_check_src(&spec->src);
             if (error) {
                 return error;
             }
@@ -188,7 +188,7 @@ learn_check(const struct ofpact_learn *learn, const struct flow *flow)
         /* Check the destination. */
         switch (spec->dst_type) {
         case NX_LEARN_DST_MATCH:
-            error = mf_check_src(&spec->dst, &match.flow);
+            error = mf_check_src(&spec->dst);
             if (error) {
                 return error;
             }
@@ -197,7 +197,7 @@ learn_check(const struct ofpact_learn *learn, const struct flow *flow)
             break;
 
         case NX_LEARN_DST_LOAD:
-            error = mf_check_dst(&spec->dst, &match.flow);
+            error = mf_check_dst(&spec->dst);
             if (error) {
                 return error;
             }
@@ -583,7 +583,7 @@ learn_parse(char *arg, const struct flow *flow, struct ofpbuf *ofpacts)
 
     /* In theory the above should have caught any errors, but... */
     if (flow) {
-        error = learn_check(learn, flow);
+        error = learn_check(learn);
         if (error) {
             ovs_fatal(0, "%s: %s", orig, ofperr_to_string(error));
         }
