@@ -106,6 +106,7 @@ enum oxm12_ofb_match_fields {
     OFPXMT12_OFB_IPV6_ND_TLL,    /* Target link-layer for ND. */
     OFPXMT12_OFB_MPLS_LABEL,     /* MPLS label. */
     OFPXMT12_OFB_MPLS_TC,        /* MPLS TC. */
+    OFPXMT12_OFB_MPLS_BOS,       /* MPLS BoS. */
 
     /* End Marker */
     OFPXMT12_OFB_MAX,
@@ -172,6 +173,7 @@ enum oxm12_ofb_match_fields {
 #define OXM_OF_IPV6_ND_TLL    OXM_HEADER   (OFPXMT12_OFB_IPV6_ND_TLL, 6)
 #define OXM_OF_MPLS_LABEL     OXM_HEADER   (OFPXMT12_OFB_MPLS_LABEL, 4)
 #define OXM_OF_MPLS_TC        OXM_HEADER   (OFPXMT12_OFB_MPLS_TC, 1)
+#define OXM_OF_MPLS_BOS       OXM_HEADER   (OFPXMT12_OFB_MPLS_BOS, 1)
 
 /* The VLAN id is 12-bits, so we can use the entire 16 bits to indicate
  * special conditions.

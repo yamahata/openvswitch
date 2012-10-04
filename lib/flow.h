@@ -36,7 +36,7 @@ struct ofpbuf;
 /* This sequence number should be incremented whenever anything involving flows
  * or the wildcarding of flows changes.  This will cause build assertion
  * failures in places which likely need to be updated. */
-#define FLOW_WC_SEQ 17
+#define FLOW_WC_SEQ 18
 
 #define FLOW_N_REGS 8
 BUILD_ASSERT_DECL(FLOW_N_REGS <= NXM_NX_MAX_REGS);
@@ -76,9 +76,11 @@ struct flow {
     ovs_be32 nw_src;            /* IPv4 source address. */
     ovs_be32 nw_dst;            /* IPv4 destination address. */
     ovs_be32 ipv6_label;        /* IPv6 flow label. */
+    ovs_be32 mpls_lse;          /* MPLS label stack entry. */
     uint16_t in_port;           /* OpenFlow port number of input port. */
     ovs_be16 vlan_tci;          /* If 802.1Q, TCI | VLAN_CFI; otherwise 0. */
     ovs_be16 dl_type;           /* Ethernet frame type. */
+    ovs_be16 encap_dl_type;     /* MPLS encapsulated Ethernet frame type */
     ovs_be16 tp_src;            /* TCP/UDP source port. */
     ovs_be16 tp_dst;            /* TCP/UDP destination port. */
     uint8_t dl_src[6];          /* Ethernet source address. */
@@ -89,6 +91,7 @@ struct flow {
     uint8_t arp_tha[6];         /* ARP/ND target hardware address. */
     uint8_t nw_ttl;             /* IP TTL/Hop Limit. */
     uint8_t nw_frag;            /* FLOW_FRAG_* flags. */
+    uint16_t mpls_depth;        /* Depth of MPLS stack. */
     uint8_t zeros[2];           /* Must be zero. */
 };
 BUILD_ASSERT_DECL(sizeof(struct flow) % 4 == 0);
@@ -96,8 +99,8 @@ BUILD_ASSERT_DECL(sizeof(struct flow) % 4 == 0);
 #define FLOW_U32S (sizeof(struct flow) / 4)
 
 /* Remember to update FLOW_WC_SEQ when changing 'struct flow'. */
-BUILD_ASSERT_DECL(sizeof(struct flow) == sizeof(struct flow_tnl) + 144 &&
-                  FLOW_WC_SEQ == 17);
+BUILD_ASSERT_DECL(sizeof(struct flow) == sizeof(struct flow_tnl) + 152 &&
+                  FLOW_WC_SEQ == 18);
 
 /* Represents the metadata fields of struct flow. */
 struct flow_metadata {
@@ -122,6 +125,11 @@ static inline size_t flow_hash(const struct flow *, uint32_t basis);
 void flow_set_dl_vlan(struct flow *, ovs_be16 vid);
 void flow_set_vlan_vid(struct flow *, ovs_be16 vid);
 void flow_set_vlan_pcp(struct flow *, uint8_t pcp);
+
+void flow_set_mpls_label(struct flow *flow, ovs_be32 label);
+void flow_set_mpls_ttl(struct flow *flow, uint8_t ttl);
+void flow_set_mpls_tc(struct flow *flow, uint8_t tc);
+void flow_set_mpls_bos(struct flow *flow, uint8_t stack);
 
 void flow_compose(struct ofpbuf *, const struct flow *);
 

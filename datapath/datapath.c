@@ -747,15 +747,8 @@ static int validate_actions(const struct nlattr *attr,
 		}
 
 		case OVS_ACTION_ATTR_POP_MPLS:
+		case OVS_ACTION_ATTR_SET_MPLS:
 			break;
-
-		case OVS_ACTION_ATTR_SET_MPLS: {
-			__be32 mpls_label = nla_get_be32(a);
-			if (mpls_label == htonl(0)) {
-				return -EINVAL;
-			}
-			break;
-		}
 
 		case OVS_ACTION_ATTR_POP_VLAN:
 			break;

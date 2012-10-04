@@ -85,7 +85,7 @@ ofputil_netmask_to_wcbits(ovs_be32 netmask)
 void
 ofputil_wildcard_from_ofpfw10(uint32_t ofpfw, struct flow_wildcards *wc)
 {
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 17);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 18);
 
     /* Initialize most of wc. */
     flow_wildcards_init_catchall(wc);
@@ -984,7 +984,7 @@ ofputil_usable_protocols(const struct match *match)
 {
     const struct flow_wildcards *wc = &match->wc;
 
-    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 17);
+    BUILD_ASSERT_DECL(FLOW_WC_SEQ == 18);
 
     /* NXM and OF1.1+ supports bitwise matching on ethernet addresses. */
     if (!eth_mask_is_exact(wc->masks.dl_src)
@@ -1050,6 +1050,21 @@ ofputil_usable_protocols(const struct match *match)
     /* Only NXM supports bitwise matching on transport port. */
     if ((wc->masks.tp_src && wc->masks.tp_src != htons(UINT16_MAX)) ||
         (wc->masks.tp_dst && wc->masks.tp_dst != htons(UINT16_MAX))) {
+        return OFPUTIL_P_NXM_ANY;
+    }
+
+    /* NXM and OF1.3+ support matching MPLS label */
+    if (wc->masks.mpls_lse & htonl(MPLS_LABEL_MASK)) {
+        return OFPUTIL_P_NXM_ANY;
+    }
+
+    /* NXM and OF1.1+ support matching MPLS TC */
+    if (wc->masks.mpls_lse & htonl(MPLS_TC_MASK)) {
+        return OFPUTIL_P_NXM_ANY;
+    }
+
+    /* NXM and OF1.1+ support matching MPLS stack flag */
+    if (wc->masks.mpls_lse & htonl(MPLS_BOS_MASK)) {
         return OFPUTIL_P_NXM_ANY;
     }
 
@@ -4045,7 +4060,8 @@ ofputil_normalize_match__(struct match *match, bool may_log)
         MAY_ARP_SHA     = 1 << 4, /* arp_sha */
         MAY_ARP_THA     = 1 << 5, /* arp_tha */
         MAY_IPV6        = 1 << 6, /* ipv6_src, ipv6_dst, ipv6_label */
-        MAY_ND_TARGET   = 1 << 7  /* nd_target */
+        MAY_ND_TARGET   = 1 << 7, /* nd_target */
+        MAY_MPLS        = 1 << 8, /* mpls label and tc */
     } may_match;
 
     struct flow_wildcards wc;
@@ -4073,6 +4089,9 @@ ofputil_normalize_match__(struct match *match, bool may_log)
         }
     } else if (match->flow.dl_type == htons(ETH_TYPE_ARP)) {
         may_match = MAY_NW_PROTO | MAY_NW_ADDR | MAY_ARP_SHA | MAY_ARP_THA;
+    } else if (match->flow.dl_type == htons(ETH_TYPE_MPLS) ||
+               match->flow.dl_type == htons(ETH_TYPE_MPLS_MCAST)) {
+        may_match = MAY_MPLS;
     } else {
         may_match = 0;
     }
@@ -4104,6 +4123,9 @@ ofputil_normalize_match__(struct match *match, bool may_log)
     }
     if (!(may_match & MAY_ND_TARGET)) {
         wc.masks.nd_target = in6addr_any;
+    }
+    if (!(may_match & MAY_MPLS)) {
+        wc.masks.mpls_lse = htonl(0);
     }
 
     /* Log any changes. */

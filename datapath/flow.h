@@ -55,7 +55,7 @@ struct sw_flow_key {
 		__be16 type;		/* Ethernet frame type. */
 	} eth;
 	struct {
-		__be32 top_label;	/* 0 if no MPLS, top label from stack otherwise */
+		__be32 top_label;	/* top label from stack */
 	} mpls;
 	struct {
 		u8     proto;		/* IP protocol or lower 8 bits of ARP opcode. */
