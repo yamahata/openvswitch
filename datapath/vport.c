@@ -465,6 +465,8 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
 	if (!(vport->ops->flags & VPORT_F_TUN_ID))
 		OVS_CB(skb)->tun_key = NULL;
 
+	skb_cb_set_mpls_bos(skb);
+
 	ovs_dp_process_received_packet(vport, skb);
 }
 

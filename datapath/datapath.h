@@ -98,6 +98,8 @@ struct datapath {
  * @flow: The flow associated with this packet.  May be %NULL if no flow.
  * @tun_key: Key for the tunnel that encapsulated this packet. NULL if the
  * packet is not being tunneled.
+ * @mpls_bos: Offset of the packet's MPLS stack from the beginning of the
+ * ethernet frame.  It is 0 if no MPLS stack is present.
  * @ip_summed: Consistently stores L4 checksumming status across different
  * kernel versions.
  * @csum_start: Stores the offset from which to start checksumming independent
@@ -109,6 +111,7 @@ struct datapath {
 struct ovs_skb_cb {
 	struct sw_flow		*flow;
 	struct ovs_key_ipv4_tunnel  *tun_key;
+	ptrdiff_t	mpls_bos;
 #ifdef NEED_CSUM_NORMALIZE
 	enum csum_type		ip_summed;
 	u16			csum_start;
@@ -193,4 +196,8 @@ struct sk_buff *ovs_vport_cmd_build_info(struct vport *, u32 pid, u32 seq,
 					 u8 cmd);
 
 int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb);
+
+void skb_cb_set_mpls_bos(struct sk_buff *skb);
+unsigned char *skb_cb_mpls_bos(const struct sk_buff *skb);
+ptrdiff_t skb_cb_mpls_bos_offset(const struct sk_buff *skb);
 #endif /* datapath.h */

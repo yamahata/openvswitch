@@ -55,6 +55,9 @@ struct sw_flow_key {
 		__be16 type;		/* Ethernet frame type. */
 	} eth;
 	struct {
+		__be32 top_label;	/* 0 if no MPLS, top label from stack otherwise */
+	} mpls;
+	struct {
 		u8     proto;		/* IP protocol or lower 8 bits of ARP opcode. */
 		u8     tos;		/* IP ToS. */
 		u8     ttl;		/* IP TTL/hop limit. */
@@ -127,6 +130,10 @@ struct arp_eth_header {
 	unsigned char       ar_tha[ETH_ALEN];	/* target hardware address  */
 	unsigned char       ar_tip[4];		/* target IP address        */
 } __packed;
+
+#define ETH_TYPE_MIN 0x600
+
+#define MPLS_HLEN 4
 
 int ovs_flow_init(void);
 void ovs_flow_exit(void);

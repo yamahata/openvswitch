@@ -74,6 +74,43 @@ int ovs_net_id __read_mostly;
 int (*ovs_dp_ioctl_hook)(struct net_device *dev, struct ifreq *rq, int cmd);
 EXPORT_SYMBOL(ovs_dp_ioctl_hook);
 
+void skb_cb_set_mpls_bos(struct sk_buff *skb)
+{
+	struct ethhdr *eth;
+	int nh_ofs;
+	__be16 dl_type = 0;
+
+	skb_reset_mac_header(skb);
+
+	eth = eth_hdr(skb);
+	nh_ofs = sizeof(struct ethhdr);
+	if (likely(eth->h_proto >= htons(ETH_TYPE_MIN))) {
+		dl_type = eth->h_proto;
+
+		while (dl_type == htons(ETH_P_8021Q) &&
+				skb->len >= nh_ofs + sizeof(struct vlan_hdr)) {
+			struct vlan_hdr *vh = (struct vlan_hdr*)(skb->data + nh_ofs);
+			dl_type = vh->h_vlan_encapsulated_proto;
+			nh_ofs += sizeof(struct vlan_hdr);
+		}
+
+		OVS_CB(skb)->mpls_bos = nh_ofs;
+	} else {
+		OVS_CB(skb)->mpls_bos = 0;
+	}
+}
+
+unsigned char *skb_cb_mpls_bos(const struct sk_buff *skb)
+{
+	return OVS_CB(skb)->mpls_bos ?
+		skb_mac_header(skb) + OVS_CB(skb)->mpls_bos : 0;
+}
+
+ptrdiff_t skb_cb_mpls_bos_offset(const struct sk_buff *skb)
+{
+	return OVS_CB(skb)->mpls_bos;
+}
+
 /**
  * DOC: Locking:
  *
@@ -670,6 +707,9 @@ static int validate_actions(const struct nlattr *attr,
 		static const u32 action_lens[OVS_ACTION_ATTR_MAX + 1] = {
 			[OVS_ACTION_ATTR_OUTPUT] = sizeof(u32),
 			[OVS_ACTION_ATTR_USERSPACE] = (u32)-1,
+			[OVS_ACTION_ATTR_PUSH_MPLS] = sizeof(struct ovs_action_push_mpls),
+			[OVS_ACTION_ATTR_POP_MPLS] = sizeof(__be16),
+			[OVS_ACTION_ATTR_SET_MPLS] = sizeof(__be32),
 			[OVS_ACTION_ATTR_PUSH_VLAN] = sizeof(struct ovs_action_push_vlan),
 			[OVS_ACTION_ATTR_POP_VLAN] = 0,
 			[OVS_ACTION_ATTR_SET] = (u32)-1,
@@ -698,6 +738,24 @@ static int validate_actions(const struct nlattr *attr,
 				return -EINVAL;
 			break;
 
+		case OVS_ACTION_ATTR_PUSH_MPLS: {
+			const struct ovs_action_push_mpls *mpls = nla_data(a);
+			if (mpls->mpls_ethertype != htons(ETH_P_MPLS_UC) &&
+			    mpls->mpls_ethertype != htons(ETH_P_MPLS_MC))
+				return -EINVAL;
+			break;
+		}
+
+		case OVS_ACTION_ATTR_POP_MPLS:
+			break;
+
+		case OVS_ACTION_ATTR_SET_MPLS: {
+			__be32 mpls_label = nla_get_be32(a);
+			if (mpls_label == htonl(0)) {
+				return -EINVAL;
+			}
+			break;
+		}
 
 		case OVS_ACTION_ATTR_POP_VLAN:
 			break;
@@ -806,6 +864,8 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 
 	OVS_CB(packet)->flow = flow;
 	packet->priority = flow->key.phy.priority;
+
+	skb_cb_set_mpls_bos(packet);
 
 	rcu_read_lock();
 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
