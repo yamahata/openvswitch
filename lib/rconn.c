@@ -354,7 +354,8 @@ reconnect(struct rconn *rc)
         VLOG_INFO("%s: connecting...", rc->name);
     }
     rc->n_attempted_connections++;
-    retval = vconn_open(rc->target, OFP10_VERSION, &rc->vconn, rc->dscp);
+    retval = vconn_open(rc->target, ofputil_get_allowed_versions_default(),
+                        &rc->vconn, rc->dscp);
     if (!retval) {
         rc->remote_ip = vconn_get_remote_ip(rc->vconn);
         rc->local_ip = vconn_get_local_ip(rc->vconn);
