@@ -98,6 +98,58 @@ char *ofputil_protocols_to_string(enum ofputil_protocol);
 enum ofputil_protocol ofputil_protocols_from_string(const char *);
 enum ofputil_protocol ofputil_usable_protocols(const struct match *);
 
+/* A bitmap of version numbers
+ *
+ * Bit offsets correspond to ofp_version numbers which in turn
+ * correspond to wire-protocol numbers for Open Flow versions..
+ * E.g. (1 << OFP10_VERSION) is the mask for Open Flow 1.1.
+ * If the bit for a version is set then it is allowed, otherwise it is
+ * disallowed. */
+
+#define VERSION_BITMAP_W (sizeof(uint32_t) * CHAR_BIT)
+
+/* Set the bit 'offset' in 'ovb' to one
+ * Expands bitmap as necessary */
+static inline uint32_t
+ofputil_version_bitmap_set1(size_t offset)
+{
+    assert(offset < VERSION_BITMAP_W);
+    return 1u << offset;
+}
+
+/* Test if bit offset is set in ovb. */
+static inline bool
+ofputil_version_bitmap_is_set(uint32_t bitmap, size_t offset)
+{
+    assert(offset < VERSION_BITMAP_W);
+    return (bitmap & (1u << offset)) != 0;
+}
+
+uint32_t ofputil_version_bitmap_set_range1(size_t start, size_t end);
+size_t ofputil_version_bitmap_scanr(uint32_t bitmap);
+size_t ofputil_version_bitmap_count_set(uint32_t bitmap);
+
+void ofputil_format_version_bitmap(struct ds *msg, uint32_t bitmap);
+void ofputil_format_version_bitmap_names(struct ds *msg, uint32_t bitmap);
+
+static inline uint32_t
+ofputil_get_supported_versions(void)
+{
+    return ofputil_version_bitmap_set1(OFP10_VERSION) |
+        ofputil_version_bitmap_set1(OFP12_VERSION);
+}
+
+static inline uint32_t
+ofputil_get_allowed_versions_default(void)
+{
+    return ofputil_version_bitmap_set1(OFP10_VERSION);
+}
+
+enum ofputil_protocol ofputil_protocols_from_string(const char *s);
+
+const char *ofputil_version_to_string(enum ofp_version ofp_version);
+uint32_t ofputil_versions_from_string(const char *s);
+
 struct ofpbuf *ofputil_encode_set_protocol(enum ofputil_protocol current,
                                            enum ofputil_protocol want,
                                            enum ofputil_protocol *next);

@@ -16,6 +16,7 @@
 
 #include <config.h>
 #include "ofp-print.h"
+#include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <sys/types.h>
@@ -845,6 +846,71 @@ ofputil_protocols_from_string(const char *s)
     return protocols;
 }
 
+static enum ofp_version
+ofputil_version_from_string(const char *s)
+{
+    if (!strcasecmp(s, "OpenFlow10")) {
+        return OFP10_VERSION;
+    }
+    if (!strcasecmp(s, "OpenFlow11")) {
+        return OFP11_VERSION;
+    }
+    if (!strcasecmp(s, "OpenFlow12")) {
+        return OFP12_VERSION;
+    }
+    VLOG_FATAL("Unknown OpenFlow version: \"%s\"", s);
+}
+
+static bool
+is_delimiter(char c)
+{
+    return isspace(c) || c == ',';
+}
+
+uint32_t
+ofputil_versions_from_string(const char *s)
+{
+    size_t i = 0;
+    uint32_t bitmap = 0;
+
+    while (s[i]) {
+        size_t j;
+        enum ofp_version version;
+        char *key;
+
+        if (is_delimiter(s[i])) {
+            i++;
+            continue;
+        }
+        j = 0;
+        while (s[i + j] && !is_delimiter(s[i + j])) {
+            j++;
+        }
+        key = xmemdup0(s + i, j);
+        version = ofputil_version_from_string(key);
+        free(key);
+        bitmap |= ofputil_version_bitmap_set1(version);
+        i += j;
+    }
+
+    return bitmap;
+}
+
+const char *
+ofputil_version_to_string(enum ofp_version ofp_version)
+{
+    switch (ofp_version) {
+    case OFP10_VERSION:
+        return "OpenFlow10";
+    case OFP11_VERSION:
+        return "OpenFlow11";
+    case OFP12_VERSION:
+        return "OpenFlow12";
+    default:
+        NOT_REACHED();
+    }
+}
+
 bool
 ofputil_packet_in_format_is_valid(enum nx_packet_in_format packet_in_format)
 {
@@ -971,6 +1037,102 @@ ofputil_usable_protocols(const struct match *match)
 
     /* Other formats can express this rule. */
     return OFPUTIL_P_ANY;
+}
+
+#define VERSION_BITMAP_W (sizeof(uint32_t) * CHAR_BIT)
+
+/* Set the bit offsets of 'ovb' from 0 to 'end', excluding 'end' itself to one
+ * Expands bitmap as necessary */
+uint32_t
+ofputil_version_bitmap_set_range1(size_t start, size_t end)
+{
+    uint32_t new = ~0U;
+
+    assert(start < VERSION_BITMAP_W);
+    assert(end < VERSION_BITMAP_W);
+
+    if (end >= start) {
+        new >>= (VERSION_BITMAP_W - end + start - 1);
+        new <<= start;
+    }
+
+    return new;
+}
+
+/* Scans 'ovb'. Returns the bit offset of the highest-numbered bit set to 1,
+ * or VERSION_BITMAP_W if all of the bits are set to 0. */
+size_t
+ofputil_version_bitmap_scanr(uint32_t bitmap)
+{
+    /* N.B: When using GCC 3.4 or newer this may be made
+     * faster using __builtin_clz()
+     */
+    size_t i = VERSION_BITMAP_W - 1;
+
+    do {
+        if (ofputil_version_bitmap_is_set(bitmap, i)) {
+            return i;
+        }
+    } while (i--);
+
+    return VERSION_BITMAP_W;
+}
+
+/* Find the number of bits in 'ovb' that are set to one. */
+size_t
+ofputil_version_bitmap_count_set(uint32_t bitmap)
+{
+    size_t i, n = 0;
+
+    for (i = 0; i < VERSION_BITMAP_W; i++) {
+        if (ofputil_version_bitmap_is_set(bitmap, i)) {
+            n++;
+        }
+    }
+
+    return n;
+}
+
+static void
+ofputil_format_version(struct ds *msg, size_t version)
+{
+    ds_put_format(msg, "0x%02zx", version);
+}
+
+static void
+ofputil_format_version_name(struct ds *msg, size_t version)
+{
+    ds_put_cstr(msg, ofputil_version_to_string(version));
+}
+
+static void
+ofputil_format_version_bitmap__(struct ds *msg, uint32_t bitmap,
+                                void (*format_version)(struct ds *msg,
+                                                       size_t version))
+{
+    size_t i, max;
+
+    max = ofputil_version_bitmap_scanr(bitmap);
+    for (i = 0; i <= max; i++) {
+        if (ofputil_version_bitmap_is_set(bitmap, i)) {
+            format_version(msg, i);
+            if (i != max) {
+                ds_put_cstr(msg, ", ");
+            }
+        }
+    }
+}
+
+void
+ofputil_format_version_bitmap(struct ds *msg, uint32_t bitmap)
+{
+    ofputil_format_version_bitmap__(msg, bitmap, ofputil_format_version);
+}
+
+void
+ofputil_format_version_bitmap_names(struct ds *msg, uint32_t bitmap)
+{
+    ofputil_format_version_bitmap__(msg, bitmap, ofputil_format_version_name);
 }
 
 /* Returns an OpenFlow message that, sent on an OpenFlow connection whose
