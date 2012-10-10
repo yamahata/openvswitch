@@ -768,6 +768,20 @@ bridge_configure_datapath_id(struct bridge *br)
     free(dpid_string);
 }
 
+/* Pick local port hardware address and datapath ID for 'br'. */
+static uint32_t
+bridge_get_allowed_versions(struct bridge *br)
+{
+    const char *config_str = smap_get(&br->cfg->other_config,
+                                      "openflow-versions");
+    if (config_str) {
+        return ofputil_versions_from_string(config_str) &
+            ofputil_get_supported_versions();
+    } else {
+        return ofputil_get_allowed_versions_default();
+    }
+}
+
 /* Set NetFlow configuration on 'br'. */
 static void
 bridge_configure_netflow(struct bridge *br)
@@ -2662,7 +2676,7 @@ bridge_configure_remotes(struct bridge *br,
     size_t n_ocs;
     size_t i;
 
-    uint32_t allowed_versions = ofputil_get_allowed_versions_default();
+    uint32_t allowed_versions = bridge_get_allowed_versions(br);
 
     /* Check if we should disable in-band control on this bridge. */
     disable_in_band = smap_get_bool(&br->cfg->other_config, "disable-in-band",
