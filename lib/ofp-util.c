@@ -586,11 +586,23 @@ static const struct proto_abbrev proto_abbrevs[] = {
 };
 #define N_PROTO_ABBREVS ARRAY_SIZE(proto_abbrevs)
 
-enum ofputil_protocol ofputil_flow_dump_protocols[] = {
-    OFPUTIL_P_NXM,
-    OFPUTIL_P_OF10,
-};
-size_t ofputil_n_flow_dump_protocols = ARRAY_SIZE(ofputil_flow_dump_protocols);
+/* Protocols to use for flow dumps, from most to least preferred. */
+const enum ofputil_protocol *
+ofputil_get_flow_dump_protocols(enum ofputil_protocol current, size_t *count)
+{
+    if (current == OFPUTIL_P_OF12) {
+        static const enum ofputil_protocol of12_proto[] = { OFPUTIL_P_OF12 };
+        *count = ARRAY_SIZE(of12_proto);
+        return of12_proto;
+    } else {
+        static const enum ofputil_protocol of10_proto[] = {
+            OFPUTIL_P_NXM,
+            OFPUTIL_P_OF10,
+        };
+        *count = ARRAY_SIZE(of10_proto);
+        return of10_proto;
+    }
+}
 
 /* Returns the ofputil_protocol that is initially in effect on an OpenFlow
  * connection that has negotiated the given 'version'.  'version' should

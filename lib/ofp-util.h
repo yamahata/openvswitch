@@ -83,9 +83,8 @@ enum ofputil_protocol {
 #define OFPUTIL_P_NXM_ANY_OR_OF11_PLUS OFPUTIL_P_NXM_ANY_OR_OF12
 };
 
-/* Protocols to use for flow dumps, from most to least preferred. */
-extern enum ofputil_protocol ofputil_flow_dump_protocols[];
-extern size_t ofputil_n_flow_dump_protocols;
+const enum ofputil_protocol *
+ofputil_get_flow_dump_protocols(enum ofputil_protocol current, size_t *count);
 
 enum ofputil_protocol
 ofputil_protocol_from_ofp_version(enum ofp_version version);

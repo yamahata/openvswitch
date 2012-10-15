@@ -793,9 +793,13 @@ set_protocol_for_flow_dump(struct vconn *vconn,
 {
     char *usable_s;
     int i;
+    size_t n_dump_protocols;
+    const enum ofputil_protocol *dump_protocols;
 
-    for (i = 0; i < ofputil_n_flow_dump_protocols; i++) {
-        enum ofputil_protocol f = ofputil_flow_dump_protocols[i];
+    dump_protocols = ofputil_get_flow_dump_protocols(cur_protocol,
+                                                     &n_dump_protocols);
+    for (i = 0; i < n_dump_protocols; i++) {
+        enum ofputil_protocol f = dump_protocols[i];
         if (f & usable_protocols & allowed_protocols
             && try_set_protocol(vconn, f, &cur_protocol)) {
             return f;
