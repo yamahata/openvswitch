@@ -412,6 +412,10 @@ ofpact_from_nxast(const union ofp_action *a, enum ofputil_action_code code,
         break;
     }
 
+    case OFPUTIL_NXAST_DEC_MPLS_TTL:
+        ofpact_put_DEC_MPLS_TTL(out);
+        break;
+
     case OFPUTIL_NXAST_POP_MPLS: {
         struct nx_action_pop_mpls *nxapm = (struct nx_action_pop_mpls *)a;
         if (nxapm->ethertype == htons(ETH_TYPE_MPLS) ||
@@ -788,6 +792,10 @@ ofpact_from_openflow11(const union ofp_action *a, struct ofpbuf *out)
         return nxm_reg_load_from_openflow12_set_field(
             (const struct ofp12_action_set_field *)a, out);
 
+    case OFPUTIL_OFPAT11_DEC_MPLS_TTL:
+        ofpact_put_DEC_MPLS_TTL(out);
+        break;
+
     case OFPUTIL_OFPAT11_PUSH_MPLS: {
         struct ofp11_action_push *oap = (struct ofp11_action_push *)a;
         if (oap->ethertype != htons(ETH_TYPE_MPLS) &&
@@ -1131,6 +1139,7 @@ ofpact_check__(const struct ofpact *a, int max_ports)
         return nxm_reg_load_check(ofpact_get_REG_LOAD(a));
 
     case OFPACT_DEC_TTL:
+    case OFPACT_DEC_MPLS_TTL:
     case OFPACT_SET_TUNNEL:
     case OFPACT_SET_QUEUE:
     case OFPACT_POP_QUEUE:
@@ -1359,6 +1368,10 @@ ofpact_to_nxast(const struct ofpact *a, struct ofpbuf *out)
         ofpact_dec_ttl_to_nxast(ofpact_get_DEC_TTL(a), out);
         break;
 
+    case OFPACT_DEC_MPLS_TTL:
+        ofputil_put_NXAST_DEC_MPLS_TTL(out);
+        break;
+
     case OFPACT_SET_TUNNEL:
         ofpact_set_tunnel_to_nxast(ofpact_get_SET_TUNNEL(a), out);
         break;
@@ -1530,6 +1543,7 @@ ofpact_to_openflow10(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_REG_MOVE:
     case OFPACT_REG_LOAD:
     case OFPACT_DEC_TTL:
+    case OFPACT_DEC_MPLS_TTL:
     case OFPACT_SET_TUNNEL:
     case OFPACT_WRITE_METADATA:
     case OFPACT_SET_QUEUE:
@@ -1682,6 +1696,7 @@ ofpact_to_openflow11(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_BUNDLE:
     case OFPACT_REG_MOVE:
     case OFPACT_REG_LOAD:
+    case OFPACT_DEC_MPLS_TTL:
     case OFPACT_SET_TUNNEL:
     case OFPACT_SET_QUEUE:
     case OFPACT_POP_QUEUE:
@@ -1804,6 +1819,7 @@ ofpact_outputs_to_port(const struct ofpact *ofpact, uint16_t port)
     case OFPACT_REG_MOVE:
     case OFPACT_REG_LOAD:
     case OFPACT_DEC_TTL:
+    case OFPACT_DEC_MPLS_TTL:
     case OFPACT_SET_TUNNEL:
     case OFPACT_WRITE_METADATA:
     case OFPACT_SET_QUEUE:
@@ -2026,6 +2042,10 @@ ofpact_format(const struct ofpact *a, struct ds *s)
 
     case OFPACT_DEC_TTL:
         print_dec_ttl(ofpact_get_DEC_TTL(a), s);
+        break;
+
+    case OFPACT_DEC_MPLS_TTL:
+        ds_put_cstr(s, "dec_mpls_ttl");
         break;
 
     case OFPACT_SET_TUNNEL:
