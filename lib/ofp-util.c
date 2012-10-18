@@ -1135,6 +1135,123 @@ ofputil_format_version_bitmap_names(struct ds *msg, uint32_t bitmap)
     ofputil_format_version_bitmap__(msg, bitmap, ofputil_format_version_name);
 }
 
+static enum ofperr
+ofputil_decode_hello_bitmap(uint32_t *allowed_versions, struct ofpbuf *msg)
+{
+    const struct ofp_hello_elem_header *oheh = msg->data;
+    uint16_t elem_len = ntohs(oheh->length);
+    size_t padded_elem_len = ROUND_UP(elem_len, 8);
+    size_t version_len;
+    ovs_be32 *bitmap;
+
+    if (msg->size < padded_elem_len || !elem_len ||
+        elem_len % sizeof *bitmap) {
+        return OFPERR_OFPET_HELLO_FAILED;
+    }
+
+    oheh = ofpbuf_pull(msg, sizeof *oheh);
+    bitmap = ofpbuf_pull(msg, padded_elem_len - sizeof *oheh);
+    version_len = elem_len - sizeof *oheh;
+    if (version_len) {
+        /* N.B: Only use the first 32bit element of the bitmap
+        * as that is all the current implementation supports.
+        * Subsequent elements are ignored which should have
+        * no effect on session negotiation until Open vSwtich
+        * supports wire-protocol versions greater than 31.
+        */
+        *allowed_versions = ntohl(bitmap[0]);
+    }
+
+    return 0;
+}
+
+enum ofperr
+ofputil_decode_hello(uint32_t *allowed_versions, struct ofpbuf *msg)
+{
+    const struct ofp_header *oh = msg->data;
+    enum ofp_version ofp_version = oh->version;
+    bool have_version_bitmap = false;
+
+    ofpraw_pull_assert(msg);
+    *allowed_versions = 0;
+
+    while (1) {
+        const struct ofp_hello_elem_header *oheh = msg->data;
+
+        if (msg->size < sizeof *oheh) {
+            break;
+        }
+
+        if (oheh->type == htons(OFPHET_VERSIONBITMAP)) {
+            enum ofperr err;
+
+            have_version_bitmap = true;
+            err = ofputil_decode_hello_bitmap(allowed_versions, msg);
+            if (err) {
+                return err;
+            }
+        } else {
+            size_t padded_elem_len = ROUND_UP(ntohs(oheh->length), 8);
+
+            if (!padded_elem_len || msg->size < padded_elem_len) {
+                break;
+            }
+
+            /* Skip unknown element */
+            ofpbuf_pull(msg, padded_elem_len);
+        }
+    }
+
+    if (!have_version_bitmap) {
+        /* Construct bitmap based on version in OpenFlow header */
+        *allowed_versions = ofputil_version_bitmap_set_range1(OFP10_VERSION,
+                                                              ofp_version);
+    }
+
+    return 0;
+}
+
+static inline bool
+should_send_version_bitmap(uint32_t allowed_versions,
+                           enum ofp_version ofp_version)
+{
+    size_t i;
+
+    /* No need to send version bitmap if all bits up to ofp_version are one */
+    for (i = OFP10_VERSION; i <= ofp_version; i++) {
+        if (!ofputil_version_bitmap_is_set(allowed_versions, i)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/* Create an OFPT_HELLO message according to
+ * 'ofp_version' and returns the message. */
+struct ofpbuf *
+ofputil_encode_hello(uint32_t allowed_versions)
+{
+    enum ofp_version ofp_version;
+    struct ofpbuf *msg;
+
+    ofp_version = ofputil_version_bitmap_scanr(allowed_versions);
+    msg = ofpraw_alloc(OFPRAW_OFPT_HELLO, ofp_version, 0);
+
+    if (should_send_version_bitmap(allowed_versions, ofp_version)) {
+        struct ofp_hello_elem_header *oheh;
+        uint16_t map_len;
+
+        map_len = VERSION_BITMAP_W / CHAR_BIT;
+        oheh = ofpbuf_put_zeros(msg, ROUND_UP(map_len + sizeof *oheh, 8));
+        oheh->type = htons(OFPHET_VERSIONBITMAP);
+        oheh->length = htons(map_len + sizeof *oheh);
+        *(ovs_be32 *)(oheh + 1) = htonl(allowed_versions);
+    }
+
+    return msg;
+}
+
 /* Returns an OpenFlow message that, sent on an OpenFlow connection whose
  * protocol is 'current', at least partly transitions the protocol to 'want'.
  * Stores in '*next' the protocol that will be in effect on the OpenFlow

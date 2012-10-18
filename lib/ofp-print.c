@@ -901,6 +901,29 @@ ofp_print_error(struct ds *string, enum ofperr error)
 }
 
 static void
+ofp_print_hello(struct ds *string, const struct ofp_header *oh)
+{
+    enum ofperr error;
+    struct ofpbuf b;
+    uint32_t allowed_versions;
+
+    ofpbuf_use_const(&b, oh, ntohs(oh->length));
+    error = ofputil_decode_hello(&allowed_versions, &b);
+    if (error) {
+        ofp_print_error(string, error);
+        return;
+    }
+
+    ds_put_cstr(string, "\n version bitmap: ");
+    ofputil_format_version_bitmap(string, allowed_versions);
+
+    if (b.size) {
+        ds_put_char(string, '\n');
+        ds_put_hex_dump(string, b.data, b.size, 0, true);
+    }
+}
+
+static void
 ofp_print_error_msg(struct ds *string, const struct ofp_header *oh)
 {
     size_t len = ntohs(oh->length);
@@ -1726,9 +1749,7 @@ ofp_to_string__(const struct ofp_header *oh, enum ofpraw raw,
     ofp_header_to_string__(oh, raw, string);
     switch (ofptype_from_ofpraw(raw)) {
     case OFPTYPE_HELLO:
-        ds_put_char(string, '\n');
-        ds_put_hex_dump(string, oh + 1, ntohs(oh->length) - sizeof *oh,
-                        0, true);
+        ofp_print_hello(string, oh);
         break;
 
     case OFPTYPE_ERROR:

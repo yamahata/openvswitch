@@ -395,12 +395,12 @@ vcs_connecting(struct vconn *vconn)
 }
 
 static void
-vcs_send_hello(struct vconn *vconn, enum ofp_version max_version)
+vcs_send_hello(struct vconn *vconn)
 {
     struct ofpbuf *b;
     int retval;
 
-    b = ofpraw_alloc(OFPRAW_OFPT_HELLO, max_version, 0);
+    b = ofputil_encode_hello(vconn->allowed_versions);
     retval = do_send(vconn, b);
     if (!retval) {
         vconn->state = VCS_RECV_HELLO;
@@ -439,39 +439,52 @@ vcs_recv_hello(struct vconn *vconn)
 
     retval = do_recv(vconn, &b);
     if (!retval) {
-        const struct ofp_header *oh = b->data;
         enum ofptype type;
         enum ofperr error;
 
         error = ofptype_decode(&type, b->data);
         if (!error && type == OFPTYPE_HELLO) {
-            if (b->size > sizeof *oh) {
+            uint32_t peer_allowed_versions;
+            uint32_t allowed_versions;
+
+            error = ofputil_decode_hello(&peer_allowed_versions, b);
+            if (error) {
+                VLOG_WARN_RL(&bad_ofmsg_rl, "%s: ***decode error: %s***\n",
+                             vconn->name, ofperr_get_name(error));
+                return;
+            }
+
+            if (b->size) {
                 struct ds msg = DS_EMPTY_INITIALIZER;
-                ds_put_format(&msg, "%s: extra-long hello:\n", vconn->name);
+                ds_put_format(&msg, "%s: trailing data in hello:\n",
+                              vconn->name);
                 ds_put_hex_dump(&msg, b->data, b->size, 0, true);
                 VLOG_WARN_RL(&bad_ofmsg_rl, "%s", ds_cstr(&msg));
                 ds_destroy(&msg);
             }
 
-            vconn->version =
-                ofputil_version_bitmap_scanr(vconn->allowed_versions);
+            allowed_versions = peer_allowed_versions & vconn->allowed_versions;
+            vconn->version = ofputil_version_bitmap_scanr(allowed_versions);
+
             if (vconn->version == VERSION_BITMAP_W) {
                 struct ds msg = DS_EMPTY_INITIALIZER;
+                ds_put_format(&msg, "%s: we support ", vconn->name);
                 format_versions(&msg, vconn->allowed_versions);
-                VLOG_WARN_RL(&bad_ofmsg_rl,
-                             "%s: version negotiation failed: we support "
-                             "%s but peer " "supports no later than "
-                             "version 0x%02"PRIx8, vconn->name,
-                             ds_cstr(&msg), oh->version);
+                ds_put_cstr(&msg, ". but peer supports ");
+                format_versions(&msg, peer_allowed_versions);
+                ds_put_char(&msg, '.');
+                VLOG_WARN_RL(&bad_ofmsg_rl, "%s", ds_cstr(&msg));
                 ds_destroy(&msg);
                 vconn->state = VCS_SEND_ERROR;
             } else {
                 struct ds msg = DS_EMPTY_INITIALIZER;
+                ds_put_format(&msg, "%s: negotiated OpenFlow version 0x%02x "
+                              "(we support ", vconn->name, vconn->version);
                 format_versions(&msg, vconn->allowed_versions);
-                VLOG_DBG("%s: negotiated OpenFlow version 0x%02x "
-                         "(we support %s, peer no later than "
-                         "version 0x%02"PRIx8")", vconn->name,
-                         vconn->version, ds_cstr(&msg), oh->version);
+                ds_put_cstr(&msg, ". peer supports ");
+                format_versions(&msg, peer_allowed_versions);
+                ds_put_cstr(&msg, ".)");
+                VLOG_DBG("%s", ds_cstr(&msg));
                 ds_destroy(&msg);
                 vconn->state = VCS_CONNECTED;
             }
@@ -537,7 +550,7 @@ vconn_connect(struct vconn *vconn)
             break;
 
         case VCS_SEND_HELLO:
-            vcs_send_hello(vconn, max_version);
+            vcs_send_hello(vconn);
             break;
 
         case VCS_RECV_HELLO:
