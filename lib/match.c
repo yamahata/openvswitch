@@ -861,7 +861,8 @@ match_format(const struct match *match, struct ds *s, unsigned int priority)
     if (!skip_proto && wc->masks.nw_proto) {
         if (f->dl_type == htons(ETH_TYPE_ARP)) {
             ds_put_format(s, "arp_op=%"PRIu8",", f->nw_proto);
-        } else {
+        } else if (f->dl_type != htons(ETH_TYPE_MPLS) &&
+                   f->dl_type != htons(ETH_TYPE_MPLS_MCAST)) {
             ds_put_format(s, "nw_proto=%"PRIu8",", f->nw_proto);
         }
     }

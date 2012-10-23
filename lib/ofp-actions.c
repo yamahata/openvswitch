@@ -412,6 +412,10 @@ ofpact_from_nxast(const union ofp_action *a, enum ofputil_action_code code,
         break;
     }
 
+    case OFPUTIL_NXAST_COPY_TTL_IN:
+        ofpact_put_COPY_TTL_IN(out);
+        break;
+
     case OFPUTIL_NXAST_COPY_TTL_OUT:
         ofpact_put_COPY_TTL_OUT(out);
         break;
@@ -802,6 +806,10 @@ ofpact_from_openflow11(const union ofp_action *a, struct ofpbuf *out)
         return nxm_reg_load_from_openflow12_set_field(
             (const struct ofp12_action_set_field *)a, out);
 
+    case OFPUTIL_OFPAT11_COPY_TTL_IN:
+        ofpact_put_COPY_TTL_IN(out);
+        break;
+
     case OFPUTIL_OFPAT11_COPY_TTL_OUT:
         ofpact_put_COPY_TTL_OUT(out);
         break;
@@ -1159,6 +1167,7 @@ ofpact_check__(const struct ofpact *a, int max_ports)
         return nxm_reg_load_check(ofpact_get_REG_LOAD(a));
 
     case OFPACT_DEC_TTL:
+    case OFPACT_COPY_TTL_IN:
     case OFPACT_COPY_TTL_OUT:
     case OFPACT_SET_MPLS_TTL:
     case OFPACT_DEC_MPLS_TTL:
@@ -1390,6 +1399,10 @@ ofpact_to_nxast(const struct ofpact *a, struct ofpbuf *out)
         ofpact_dec_ttl_to_nxast(ofpact_get_DEC_TTL(a), out);
         break;
 
+    case OFPACT_COPY_TTL_IN:
+        ofputil_put_NXAST_COPY_TTL_IN(out);
+        break;
+
     case OFPACT_COPY_TTL_OUT:
         ofputil_put_NXAST_COPY_TTL_OUT(out);
         break;
@@ -1574,6 +1587,7 @@ ofpact_to_openflow10(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_REG_MOVE:
     case OFPACT_REG_LOAD:
     case OFPACT_DEC_TTL:
+    case OFPACT_COPY_TTL_IN:
     case OFPACT_COPY_TTL_OUT:
     case OFPACT_SET_MPLS_TTL:
     case OFPACT_DEC_MPLS_TTL:
@@ -1729,6 +1743,7 @@ ofpact_to_openflow11(const struct ofpact *a, struct ofpbuf *out)
     case OFPACT_BUNDLE:
     case OFPACT_REG_MOVE:
     case OFPACT_REG_LOAD:
+    case OFPACT_COPY_TTL_IN:
     case OFPACT_COPY_TTL_OUT:
     case OFPACT_SET_MPLS_TTL:
     case OFPACT_DEC_MPLS_TTL:
@@ -1854,6 +1869,7 @@ ofpact_outputs_to_port(const struct ofpact *ofpact, uint16_t port)
     case OFPACT_REG_MOVE:
     case OFPACT_REG_LOAD:
     case OFPACT_DEC_TTL:
+    case OFPACT_COPY_TTL_IN:
     case OFPACT_COPY_TTL_OUT:
     case OFPACT_SET_MPLS_TTL:
     case OFPACT_DEC_MPLS_TTL:
@@ -2079,6 +2095,10 @@ ofpact_format(const struct ofpact *a, struct ds *s)
 
     case OFPACT_DEC_TTL:
         print_dec_ttl(ofpact_get_DEC_TTL(a), s);
+        break;
+
+    case OFPACT_COPY_TTL_IN:
+        ds_put_cstr(s, "copy_ttl_in");
         break;
 
     case OFPACT_COPY_TTL_OUT:

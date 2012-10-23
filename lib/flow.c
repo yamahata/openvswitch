@@ -368,6 +368,7 @@ flow_extract(struct ofpbuf *packet, uint32_t skb_priority,
 {
     struct ofpbuf b = *packet;
     struct eth_header *eth;
+    ovs_be16 dl_type;
 
     COVERAGE_INC(flow_extract);
 
@@ -400,11 +401,11 @@ flow_extract(struct ofpbuf *packet, uint32_t skb_priority,
     if (eth->eth_type == htons(ETH_TYPE_VLAN)) {
         parse_vlan(&b, flow);
     }
-    flow->dl_type = parse_ethertype(&b);
+    dl_type = flow->dl_type = parse_ethertype(&b);
 
     /* Parse mpls, copy l3 ttl. */
-    if (flow->dl_type == htons(ETH_TYPE_MPLS) ||
-        flow->dl_type == htons(ETH_TYPE_MPLS_MCAST)) {
+    if (dl_type == htons(ETH_TYPE_MPLS) ||
+        dl_type == htons(ETH_TYPE_MPLS_MCAST)) {
         struct ip_header *ih;
         struct ip6_hdr *ih6;
 
@@ -419,15 +420,17 @@ flow_extract(struct ofpbuf *packet, uint32_t skb_priority,
         if (packet->size >= sizeof *ih &&
             IP_VER(ih->ip_ihl_ver) == IP_VERSION) {
             flow->nw_ttl = ih->ip_ttl;
+            dl_type = htons(ETH_TYPE_IP);
         } else if (packet->size >= sizeof *ih6 &&
                    IP6_VER(ih6->ip6_vfc) == IP6_VERSION) {
             flow->nw_ttl = ih6->ip6_hlim;
+            dl_type = htons(ETH_TYPE_IPV6);
         }
     }
 
     /* Network layer. */
     packet->l3 = b.data;
-    if (flow->dl_type == htons(ETH_TYPE_IP)) {
+    if (dl_type == htons(ETH_TYPE_IP)) {
         const struct ip_header *nh = pull_ip(&b);
         if (nh) {
             packet->l4 = b.data;
@@ -460,7 +463,7 @@ flow_extract(struct ofpbuf *packet, uint32_t skb_priority,
                 }
             }
         }
-    } else if (flow->dl_type == htons(ETH_TYPE_IPV6)) {
+    } else if (dl_type == htons(ETH_TYPE_IPV6)) {
         if (parse_ipv6(&b, flow)) {
             return;
         }
@@ -475,7 +478,7 @@ flow_extract(struct ofpbuf *packet, uint32_t skb_priority,
                 packet->l7 = b.data;
             }
         }
-    } else if (flow->dl_type == htons(ETH_TYPE_ARP)) {
+    } else if (dl_type == htons(ETH_TYPE_ARP)) {
         const struct arp_eth_header *arp = pull_arp(&b);
         if (arp && arp->ar_hrd == htons(1)
             && arp->ar_pro == htons(ETH_TYPE_IP)
