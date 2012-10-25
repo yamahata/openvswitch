@@ -287,6 +287,15 @@ void bitwise_put(uint64_t value,
 uint64_t bitwise_get(const void *src, unsigned int src_len,
                      unsigned int src_ofs, unsigned int n_bits);
 
+#ifdef HAVE___BUILTIN_CLZ
+static inline int clz(unsigned int x)
+{
+    return __builtin_clz(x);
+}
+#else
+int clz(unsigned int x);
+#endif
+
 #ifdef  __cplusplus
 }
 #endif

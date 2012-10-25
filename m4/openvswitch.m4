@@ -193,6 +193,22 @@ AC_DEFUN([OVS_CHECK_MALLOC_HOOKS],
                 __free_hook in <malloc.h>.])
    fi])
 
+dnl Checks for __builtin_clz
+AC_DEFUN([OVS_CHECK___BUILTIN_CLZ],
+  [AC_CACHE_CHECK(
+    [whether __builtin_clz is provided],
+    [ovs_cv___builtin_clz],
+    [AC_COMPILE_IFELSE(
+      [AC_LANG_PROGRAM(
+         [],
+         [return __builtin_clz(1);])],
+      [ovs_cv___builtin_clz=yes],
+      [ovs_cv___builtin_clz=no])])
+   if test $ovs_cv___builtin_clz = yes; then
+     AC_DEFINE([HAVE___BUILTIN_CLZ], [1],
+               [Define to 1 if you have __builtin_clz])
+   fi])
+
 dnl Checks for valgrind/valgrind.h.
 AC_DEFUN([OVS_CHECK_VALGRIND],
   [AC_CHECK_HEADERS([valgrind/valgrind.h])])

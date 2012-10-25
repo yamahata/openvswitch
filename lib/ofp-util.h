@@ -130,8 +130,18 @@ ofputil_version_bitmap_is_set(uint32_t bitmap, size_t offset)
 }
 
 uint32_t ofputil_version_bitmap_set_range1(size_t start, size_t end);
-size_t ofputil_version_bitmap_scanr(uint32_t bitmap);
 size_t ofputil_version_bitmap_count_set(uint32_t bitmap);
+
+/* Scans 'ovb'. Returns the bit offset of the highest-numbered bit set to 1,
+ * or VERSION_BITMAP_W if all of the bits are set to 0. */
+static inline size_t
+ofputil_version_bitmap_scanr(uint32_t bitmap)
+{
+    if (!bitmap)
+        return VERSION_BITMAP_W;
+    BUILD_ASSERT(sizeof bitmap == sizeof(unsigned int));
+    return VERSION_BITMAP_W - 1 - clz(bitmap);
+}
 
 void ofputil_format_version_bitmap(struct ds *msg, uint32_t bitmap);
 void ofputil_format_version_bitmap_names(struct ds *msg, uint32_t bitmap);

@@ -1077,25 +1077,6 @@ ofputil_version_bitmap_set_range1(size_t start, size_t end)
     return new;
 }
 
-/* Scans 'ovb'. Returns the bit offset of the highest-numbered bit set to 1,
- * or VERSION_BITMAP_W if all of the bits are set to 0. */
-size_t
-ofputil_version_bitmap_scanr(uint32_t bitmap)
-{
-    /* N.B: When using GCC 3.4 or newer this may be made
-     * faster using __builtin_clz()
-     */
-    size_t i = VERSION_BITMAP_W - 1;
-
-    do {
-        if (ofputil_version_bitmap_is_set(bitmap, i)) {
-            return i;
-        }
-    } while (i--);
-
-    return VERSION_BITMAP_W;
-}
-
 /* Find the number of bits in 'ovb' that are set to one. */
 size_t
 ofputil_version_bitmap_count_set(uint32_t bitmap)

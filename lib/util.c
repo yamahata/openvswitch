@@ -1149,3 +1149,24 @@ bitwise_get(const void *src, unsigned int src_len,
                  n_bits);
     return ntohll(value);
 }
+
+#ifndef HAVE___BUILTIN_CLZ
+#define UINT_BITS (sizeof(unsigned int) * 8)
+
+/* Returns the number of leading 0-bits in x
+ * x must be non-zero */
+int clz(unsigned int x)
+{
+    size_t i = UINT_BITS - 1;
+
+    assert(x);
+
+    do {
+        if (x & (1u << i)) {
+            return UINT_BITS - i - 1;
+        }
+    } while (i--);
+
+    return UINT_BITS;
+}
+#endif
